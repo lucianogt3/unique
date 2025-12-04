@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistema de Auditoria</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); /* Gradiente Azul Profissional */
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.5);
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        .card-header-custom {
+            background: transparent;
+            padding: 40px 30px 20px;
+            text-align: center;
+        }
+
+        .card-body-custom {
+            padding: 20px 40px 40px;
+        }
+
+        .logo-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            color: white;
+            font-size: 35px;
+            box-shadow: 0 5px 15px rgba(37, 99, 235, 0.3);
+        }
+
+        .form-control {
+            border-radius: 10px;
+            padding: 12px 15px;
+            border: 2px solid #eef2f6;
+            background-color: #f8fafc;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+            background-color: #fff;
+        }
+
+        .input-group-text {
+            background-color: #f8fafc;
+            border: 2px solid #eef2f6;
+            border-right: none;
+            border-radius: 10px 0 0 10px;
+            color: #64748b;
+        }
+
+        .form-control {
+            border-left: none;
+            border-radius: 0 10px 10px 0;
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border: none;
+            border-radius: 10px;
+            padding: 14px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(29, 78, 216, 0.3);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <div class="card-header-custom">
+            <div class="logo-icon">
+                <i class="fas fa-file-medical-alt"></i>
+            </div>
+            <h3 class="fw-bold text-dark mb-1">Auditoria Médica</h3>
+            <p class="text-muted small">Faça login para acessar os prontuários</p>
+        </div>
+
+        <div class="card-body-custom">
+            {% if error %}
+                <div class="alert alert-danger text-center py-2 small shadow-sm border-0 mb-4">
+                    <i class="fas fa-exclamation-circle me-2"></i>{{ error }}
+                </div>
+            {% endif %}
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} text-center py-2 small shadow-sm border-0 mb-4">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('login') }}">
+                <div class="mb-4">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-user"></i></span>
+                        <input type="text" class="form-control" name="username" placeholder="Usuário" required autofocus>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                        <input type="password" class="form-control" name="password" placeholder="Senha" required>
+                    </div>
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-login text-white">
+                        ENTRAR <i class="fas fa-arrow-right ms-2"></i>
+                    </button>
+                </div>
+            </form>
+
+            <div class="text-center mt-4">
+                <a href="{{ url_for('registrar_admin') }}" class="text-decoration-none text-muted small">
+                    Primeiro acesso? <span class="text-primary fw-bold">Criar conta</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

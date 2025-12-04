@@ -1,0 +1,994 @@
+{% extends "base.html" %}
+
+{% block header_title %}Gestão de Prontuários{% endblock %}
+
+{% block content %}
+<div class="content-section">
+    <div class="section-header">
+        <h2>Lista de Prontuários</h2>
+        <button class="btn btn-primary" onclick="abrirModalNovoProntuario()">
+            <i class="fas fa-plus"></i> Novo Prontuário
+        </button>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="filters">
+        <div class="filter-item">
+            <label for="filter-status">Status</label>
+            <select id="filter-status" onchange="aplicarFiltros()">
+                <option value="">Todos os status</option>
+                {% for status in status_opcoes %}
+                <option value="{{ status }}" {% if status_filter == status %}selected{% endif %}>{{ status }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-item">
+            <label for="filter-convenio">Convênio</label>
+            <select id="filter-convenio" onchange="aplicarFiltros()">
+                <option value="">Todos os convênios</option>
+                {% for convenio in convenios %}
+                <option value="{{ convenio }}" {% if convenio_filter == convenio %}selected{% endif %}>{{ convenio }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-item">
+            <label for="filter-setor">Setor</label>
+            <select id="filter-setor" onchange="aplicarFiltros()">
+                <option value="">Todos os setores</option>
+                {% for setor in setores %}
+                <option value="{{ setor }}" {% if setor_filter == setor %}selected{% endif %}>{{ setor }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-item">
+            <label>&nbsp;</label>
+            <button class="btn btn-secondary" onclick="limparFiltros()">Limpar Filtros</button>
+        </div>
+    </div>
+    
+    <!-- Tabela de prontuários CORRIGIDA -->
+    <div class="table-container">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Beneficiário</th>
+                    <th>Convênio</th>
+                    <th>Setor</th>
+                    <th>Atendimento</th>
+                    <th>Admissão</th>
+                    <th>Alta</th>
+                    <th>Status</th>
+                    <th>Erros</th>
+                    <th>Responsáveis</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prontuario in prontuarios %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('detalhes_prontuario', prontuario_id=prontuario.id) }}" class="patient-link">
+                            {{ prontuario.beneficiario }}
+                        </a>
+                    </td>
+                    <td>{{ prontuario.convenio }}</td>
+                    <td>{{ prontuario.setor }}</td>
+                    <td>{{ prontuario.atendimento }}</td>
+                    <td>
+                        {% if prontuario.admissao %}
+                            {{ prontuario.admissao }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if prontuario.alta %}
+                            {{ prontuario.alta }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="status-badge status-{{ prontuario.status|lower|replace(' ', '-')|replace('ç', 'c') }}">
+                            {{ prontuario.status }}
+                        </span>
+                    </td>
+                    <td>
+                        <!-- 🔥 CORREÇÃO CRÍTICA: Exibição simplificada dos erros -->
+                        {% if prontuario.erros and prontuario.erros|length > 0 %}
+                            <div class="erros-list">
+                                {% for erro in prontuario.erros %}
+                                    {% if erro is mapping %}
+                                        <span class="badge bg-danger mb-1" 
+                                              title="Tipo: {{ erro.tipo }}{% if erro.causa %}&#10;Causa: {{ erro.causa }}{% endif %}">
+                                            {{ erro.tipo }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-warning mb-1">
+                                            {{ erro }}
+                                        </span>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <span class="text-muted">Nenhum</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <!-- 🔥 CORREÇÃO: Responsáveis como lista simples -->
+                        {% if prontuario.responsaveis and prontuario.responsaveis|length > 0 %}
+                            <div class="responsaveis-list">
+                                {% for responsavel in prontuario.responsaveis %}
+                                    <span class="badge bg-primary mb-1">{{ responsavel }}</span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="btn-group">
+                            <a href="{{ url_for('detalhes_prontuario', prontuario_id=prontuario.id) }}" 
+                               class="btn btn-sm btn-outline-primary btn-action" title="Ver Detalhes">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <button class="btn btn-sm btn-outline-success btn-action" 
+                                    onclick="abrirModalGerenciarErros('{{ prontuario.id }}')" 
+                                    title="Gerenciar Erros">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger btn-action" 
+                                    onclick="excluirProntuario({{ prontuario.id }}, '{{ prontuario.beneficiario }}')" 
+                                    title="Excluir Prontuário">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="10" class="text-center text-muted py-4">
+                        Nenhum prontuário encontrado
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal para novo prontuário -->
+<div class="modal fade" id="modalNovoProntuario" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Novo Prontuário</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formNovoProntuario">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Beneficiário *</label>
+                                <input type="text" class="form-control" name="beneficiario" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Convênio *</label>
+                                <select class="form-select" name="convenio" required>
+                                    <option value="">Selecione o convênio...</option>
+                                    {% for convenio in convenios %}
+                                    <option value="{{ convenio }}">{{ convenio }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Setor *</label>
+                                <select class="form-select" name="setor" required>
+                                    <option value="">Selecione o setor...</option>
+                                    {% for setor in setores %}
+                                    <option value="{{ setor }}">{{ setor }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Nº Atendimento *</label>
+                                <input type="text" class="form-control" name="atendimento" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Status</label>
+                                <select class="form-select" name="status">
+                                    {% for status in status_opcoes %}
+                                    <option value="{{ status }}" {% if status == 'Aguardando Auditoria' %}selected{% endif %}>{{ status }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Data Admissão *</label>
+                                <input type="date" class="form-control" name="admissao" required>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Data Alta</label>
+                                <input type="date" class="form-control" name="alta">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Recebimento do Prontuário</label>
+                                <input type="date" class="form-control" name="recebimento_prontuario">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Início da Auditoria</label>
+                                <input type="date" class="form-control" name="inicio_auditoria">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Enviado para Faturamento</label>
+                                <input type="date" class="form-control" name="enviado_faturamento">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Prazo</label>
+                                <input type="date" class="form-control" name="prazo">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Diárias</label>
+                                <input type="number" class="form-control" name="diarias" min="0" step="1">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label">Fim da Auditoria</label>
+                                <input type="date" class="form-control" name="fim_auditoria">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Seção de Erros -->
+                    <div class="erros-section mt-4">
+                        <h6>Erros Identificados</h6>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            Adicione os erros identificados no prontuário. Você pode adicionar múltiplos erros.
+                        </div>
+                        
+                        <div id="containerErros">
+                            <!-- Primeiro erro será adicionado aqui -->
+                        </div>
+                        
+                        <button type="button" class="btn btn-outline-primary" onclick="adicionarErro()">
+                            <i class="fas fa-plus"></i> Adicionar Outro Erro
+                        </button>
+                    </div>
+
+                    <!-- Responsável -->
+                    <div class="row mt-4">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label class="form-label">Responsável pela Correção *</label>
+                                <select class="form-select" name="responsavel" required>
+                                    <option value="">Selecione o responsável pela correção...</option>
+                                    {% for responsavel in responsaveis %}
+                                    <option value="{{ responsavel }}">{{ responsavel }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">
+                                    Este responsável será encarregado de corrigir os erros identificados acima.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label class="form-label">Observação</label>
+                                <textarea class="form-control" name="observacao" rows="3" placeholder="Observações adicionais sobre o prontuário..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarNovoProntuario()">Salvar Prontuário</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para gerenciar erros -->
+<div class="modal fade" id="modalGerenciarErros" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Gerenciar Erros do Prontuário</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="prontuario_id_erros">
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    Adicione ou remova erros deste prontuário e defina o responsável pela correção.
+                </div>
+                
+                <div id="containerErrosExistente">
+                    <!-- Erros serão carregados aqui via JavaScript -->
+                </div>
+                
+                <button type="button" class="btn btn-outline-primary mt-3" onclick="adicionarErroExistente()">
+                    <i class="fas fa-plus"></i> Adicionar Novo Erro
+                </button>
+
+                <!-- Responsável -->
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <div class="mb-3">
+                            <label class="form-label">Responsável pela Correção *</label>
+                            <select class="form-select" id="responsavel_correcao" required>
+                                <option value="">Selecione o responsável pela correção...</option>
+                                {% for responsavel in responsaveis %}
+                                <option value="{{ responsavel }}">{{ responsavel }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">
+                                Este responsável será encarregado de corrigir os erros identificados acima.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarErrosExistente()">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.erro-row {
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    border: 1px solid #dee2e6;
+}
+
+.erros-section {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    background: #f8f9fa;
+}
+
+.erros-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.responsaveis-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-aguardando-auditoria { background-color: #fff3cd; color: #856404; }
+.status-em-auditoria { background-color: #d1ecf1; color: #0c5460; }
+.status-aguardando-correcao { background-color: #f8d7da; color: #721c24; }
+.status-corrigido { background-color: #d4edda; color: #155724; }
+.status-entregue-ao-faturamento { background-color: #cce7ff; color: #004085; }
+
+.btn-action {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 2px;
+    transition: all 0.3s ease;
+    border: 1px solid;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.btn-action i {
+    font-size: 0.8rem;
+}
+
+.btn-outline-primary {
+    border-color: #0d6efd;
+    color: #0d6efd;
+}
+
+.btn-outline-primary:hover {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+.btn-outline-success {
+    border-color: #198754;
+    color: #198754;
+}
+
+.btn-outline-success:hover {
+    background-color: #198754;
+    border-color: #198754;
+    color: white;
+}
+
+.btn-outline-danger {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.btn-outline-danger:hover {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+.btn-group {
+    display: flex;
+    gap: 4px;
+}
+
+.filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    align-items: end;
+}
+
+.filter-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.filter-item label {
+    font-weight: 500;
+    margin-bottom: 0;
+}
+
+.quantidade-input {
+    max-width: 100px;
+}
+
+.patient-link {
+    color: #0d6efd;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.patient-link:hover {
+    color: #0a58ca;
+    text-decoration: underline;
+}
+
+.table-container {
+    background: white;
+    border-radius: 0.375rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    overflow: hidden;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    color: #495057;
+}
+
+.table td {
+    vertical-align: middle;
+    padding: 0.75rem;
+}
+
+.badge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Dados das causas por tipo de erro
+const causasPorTipo = {
+    {% for tipo, info in tipos_erro.items() %}
+    "{{ tipo }}": {{ info.causas | tojson }},
+    {% endfor %}
+};
+
+let contadorErros = 0;
+let contadorErrosExistente = 0;
+
+// Inicializar com um erro vazio quando abrir o modal
+function inicializarErros() {
+    contadorErros = 0;
+    const container = document.getElementById('containerErros');
+    container.innerHTML = '';
+    adicionarErro(); // Adiciona o primeiro campo de erro
+}
+
+function aplicarFiltros() {
+    const status = document.getElementById('filter-status').value;
+    const convenio = document.getElementById('filter-convenio').value;
+    const setor = document.getElementById('filter-setor').value;
+    
+    let url = '/prontuarios?';
+    const params = [];
+    
+    if (status) params.push(`status=${encodeURIComponent(status)}`);
+    if (convenio) params.push(`convenio=${encodeURIComponent(convenio)}`);
+    if (setor) params.push(`setor=${encodeURIComponent(setor)}`);
+    
+    window.location.href = url + params.join('&');
+}
+
+function limparFiltros() {
+    window.location.href = '/prontuarios';
+}
+
+function abrirModalNovoProntuario() {
+    inicializarErros();
+    const modal = new bootstrap.Modal(document.getElementById('modalNovoProntuario'));
+    modal.show();
+}
+
+function abrirModalGerenciarErros(prontuarioId) {
+    document.getElementById('prontuario_id_erros').value = prontuarioId;
+    contadorErrosExistente = 0;
+    
+    carregarDadosParaEdicao(prontuarioId);
+    
+    const modal = new bootstrap.Modal(document.getElementById('modalGerenciarErros'));
+    modal.show();
+}
+
+function carregarDadosParaEdicao(prontuarioId) {
+    fetch(`/api/prontuario/${prontuarioId}/dados`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro ao carregar dados');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Dados carregados para edição:', data);
+            const container = document.getElementById('containerErrosExistente');
+            container.innerHTML = '';
+            
+            // Carregar erros existentes
+            if (data.erros && Array.isArray(data.erros)) {
+                data.erros.forEach((erro, index) => {
+                    if (erro && typeof erro === 'object') {
+                        adicionarErroExistenteComDados(erro, index);
+                    }
+                });
+            }
+            
+            // Se não houver erros, adicionar um campo vazio
+            if (!data.erros || data.erros.length === 0) {
+                adicionarErroExistente();
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar dados:', error);
+            alert('Erro ao carregar dados do prontuário');
+            adicionarErroExistente();
+        });
+}
+
+function adicionarErroExistenteComDados(erro, index) {
+    const container = document.getElementById('containerErrosExistente');
+    
+    const novoErro = document.createElement('div');
+    novoErro.className = 'erro-row row mb-3 border-bottom pb-3';
+    novoErro.innerHTML = `
+        <div class="col-md-3">
+            <label class="form-label">Tipo de Erro</label>
+            <select class="form-select tipo-erro-existente" name="erros[${index}][tipo]" required onchange="atualizarCausasExistente(this, ${index})">
+                <option value="">Selecione o tipo...</option>
+                {% for tipo, info in tipos_erro.items() %}
+                <option value="{{ tipo }}">{{ info.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Causa do Erro</label>
+            <select class="form-select causa-erro-existente" name="erros[${index}][causa]" id="causas-existente-${index}" required>
+                <option value="">Selecione o tipo primeiro...</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Quantidade</label>
+            <input type="number" class="form-control quantidade-input" name="erros[${index}][quantidade]" id="quantidade-existente-${index}" 
+                   min="1" max="100" value="1" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">&nbsp;</label>
+            <button type="button" class="btn btn-danger w-100" onclick="removerErroExistente(this)">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    
+    container.appendChild(novoErro);
+    
+    // Definir valores após o elemento ser adicionado ao DOM
+    setTimeout(() => {
+        const tipoSelect = novoErro.querySelector('.tipo-erro-existente');
+        const causaSelect = novoErro.querySelector('.causa-erro-existente');
+        const quantidadeInput = novoErro.querySelector('.quantidade-input');
+        
+        if (tipoSelect && causaSelect && quantidadeInput) {
+            // Definir tipo
+            if (erro.tipo) {
+                tipoSelect.value = erro.tipo;
+                
+                // Atualizar causas baseadas no tipo
+                if (causasPorTipo[erro.tipo]) {
+                    causaSelect.innerHTML = '<option value="">Selecione a causa...</option>';
+                    causasPorTipo[erro.tipo].forEach(causa => {
+                        const option = document.createElement('option');
+                        option.value = causa;
+                        option.textContent = causa;
+                        if (causa === erro.causa) {
+                            option.selected = true;
+                        }
+                        causaSelect.appendChild(option);
+                    });
+                }
+            }
+            
+            // Definir quantidade
+            if (erro.quantidade !== undefined && erro.quantidade !== null) {
+                quantidadeInput.value = erro.quantidade;
+            } else {
+                quantidadeInput.value = 1;
+            }
+        }
+    }, 100);
+}
+
+function excluirProntuario(prontuarioId, beneficiario) {
+    if (!confirm(`⚠️ TEM CERTEZA QUE DESEJA EXCLUIR O PRONTUÁRIO?\n\nBeneficiário: ${beneficiario}\nID: ${prontuarioId}\n\nEsta ação não pode ser desfeita!`)) {
+        return;
+    }
+    
+    fetch(`/api/excluir_prontuario/${prontuarioId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.sucesso) {
+            alert('✅ Prontuário excluído com sucesso!');
+            window.location.reload();
+        } else {
+            alert('❌ Erro ao excluir prontuário: ' + data.erro);
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erro:', error);
+        alert('❌ Erro ao excluir prontuário');
+    });
+}
+
+function atualizarCausas(select, index) {
+    const tipo = select.value;
+    const selectCausas = document.getElementById(`causas-${index}`);
+    
+    selectCausas.innerHTML = '<option value="">Selecione a causa...</option>';
+    
+    if (tipo && causasPorTipo[tipo]) {
+        causasPorTipo[tipo].forEach(causa => {
+            const option = document.createElement('option');
+            option.value = causa;
+            option.textContent = causa;
+            selectCausas.appendChild(option);
+        });
+    }
+}
+
+function adicionarErro() {
+    contadorErros++;
+    const container = document.getElementById('containerErros');
+    
+    const novoErro = document.createElement('div');
+    novoErro.className = 'erro-row row mb-3 border-bottom pb-3';
+    novoErro.innerHTML = `
+        <div class="col-md-3">
+            <label class="form-label">Tipo de Erro</label>
+            <select class="form-select tipo-erro" name="erros[${contadorErros}][tipo]" required onchange="atualizarCausas(this, ${contadorErros})">
+                <option value="">Selecione o tipo...</option>
+                {% for tipo, info in tipos_erro.items() %}
+                <option value="{{ tipo }}">{{ info.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Causa do Erro</label>
+            <select class="form-select causa-erro" name="erros[${contadorErros}][causa]" id="causas-${contadorErros}" required>
+                <option value="">Selecione o tipo primeiro...</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Quantidade</label>
+            <input type="number" class="form-control quantidade-input" name="erros[${contadorErros}][quantidade]" 
+                   min="1" max="100" value="1" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">&nbsp;</label>
+            <button type="button" class="btn btn-danger w-100" onclick="removerErro(this)">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    
+    container.appendChild(novoErro);
+}
+
+function adicionarErroExistente() {
+    contadorErrosExistente++;
+    const container = document.getElementById('containerErrosExistente');
+    
+    const novoErro = document.createElement('div');
+    novoErro.className = 'erro-row row mb-3 border-bottom pb-3';
+    novoErro.innerHTML = `
+        <div class="col-md-3">
+            <label class="form-label">Tipo de Erro</label>
+            <select class="form-select tipo-erro-existente" name="erros[${contadorErrosExistente}][tipo]" required onchange="atualizarCausasExistente(this, ${contadorErrosExistente})">
+                <option value="">Selecione o tipo...</option>
+                {% for tipo, info in tipos_erro.items() %}
+                <option value="{{ tipo }}">{{ info.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Causa do Erro</label>
+            <select class="form-select causa-erro-existente" name="erros[${contadorErrosExistente}][causa]" id="causas-existente-${contadorErrosExistente}" required>
+                <option value="">Selecione o tipo primeiro...</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Quantidade</label>
+            <input type="number" class="form-control quantidade-input" name="erros[${contadorErrosExistente}][quantidade]" 
+                   min="1" max="100" value="1" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">&nbsp;</label>
+            <button type="button" class="btn btn-danger w-100" onclick="removerErroExistente(this)">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    
+    container.appendChild(novoErro);
+}
+
+function removerErro(botao) {
+    const linha = botao.closest('.erro-row');
+    linha.remove();
+}
+
+function removerErroExistente(botao) {
+    const linha = botao.closest('.erro-row');
+    linha.remove();
+}
+
+function atualizarCausasExistente(select, index) {
+    const tipo = select.value;
+    const selectCausas = document.getElementById(`causas-existente-${index}`);
+    
+    selectCausas.innerHTML = '<option value="">Selecione a causa...</option>';
+    
+    if (tipo && causasPorTipo[tipo]) {
+        causasPorTipo[tipo].forEach(causa => {
+            const option = document.createElement('option');
+            option.value = causa;
+            option.textContent = causa;
+            selectCausas.appendChild(option);
+        });
+    }
+}
+
+function salvarNovoProntuario() {
+    const form = document.getElementById('formNovoProntuario');
+    const formData = new FormData(form);
+    
+    // Coletar dados básicos
+    const dados = {
+        beneficiario: formData.get('beneficiario'),
+        convenio: formData.get('convenio'),
+        setor: formData.get('setor'),
+        atendimento: formData.get('atendimento'),
+        status: formData.get('status'),
+        admissao: formData.get('admissao'),
+        alta: formData.get('alta'),
+        recebimento_prontuario: formData.get('recebimento_prontuario'),
+        inicio_auditoria: formData.get('inicio_auditoria'),
+        enviado_faturamento: formData.get('enviado_faturamento'),
+        prazo: formData.get('prazo'),
+        diarias: formData.get('diarias'),
+        fim_auditoria: formData.get('fim_auditoria'),
+        responsavel: formData.get('responsavel'),
+        observacao: formData.get('observacao')
+    };
+    
+    // Coletar erros
+    const erros = [];
+    const linhasErro = document.querySelectorAll('#containerErros .erro-row');
+    
+    linhasErro.forEach((linha) => {
+        const tipoSelect = linha.querySelector('.tipo-erro');
+        const causaSelect = linha.querySelector('.causa-erro');
+        const quantidadeInput = linha.querySelector('.quantidade-input');
+        
+        if (tipoSelect && causaSelect && quantidadeInput && 
+            tipoSelect.value && causaSelect.value && quantidadeInput.value) {
+            erros.push({
+                tipo: tipoSelect.value,
+                causa: causaSelect.value,
+                quantidade: parseInt(quantidadeInput.value) || 1,
+                responsavel: dados.responsavel
+            });
+        }
+    });
+    
+    dados.erros = erros;
+    
+    if (!dados.responsavel) {
+        alert('❌ Por favor, selecione um responsável pela correção.');
+        return;
+    }
+    
+    console.log('Dados a serem enviados:', dados);
+    
+    fetch('/api/adicionar_prontuario', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.sucesso) {
+            alert('✅ Prontuário criado com sucesso!');
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalNovoProntuario'));
+            modal.hide();
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            alert('❌ Erro ao adicionar prontuário: ' + data.erro);
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erro:', error);
+        alert('❌ Erro de conexão ao adicionar prontuário');
+    });
+}
+
+function salvarErrosExistente() {
+    const prontuarioId = document.getElementById('prontuario_id_erros').value;
+    const responsavel = document.getElementById('responsavel_correcao').value;
+    
+    if (!responsavel) {
+        alert('Por favor, selecione um responsável pela correção.');
+        return;
+    }
+    
+    const erros = [];
+    const linhasErros = document.querySelectorAll('#containerErrosExistente .erro-row');
+    
+    linhasErros.forEach((linha) => {
+        const tipoSelect = linha.querySelector('.tipo-erro-existente');
+        const causaSelect = linha.querySelector('.causa-erro-existente');
+        const quantidadeInput = linha.querySelector('.quantidade-input');
+        
+        if (tipoSelect && causaSelect && quantidadeInput && 
+            tipoSelect.value && causaSelect.value && quantidadeInput.value) {
+            erros.push({
+                tipo: tipoSelect.value,
+                causa: causaSelect.value,
+                quantidade: parseInt(quantidadeInput.value) || 1,
+                responsavel: responsavel
+            });
+        }
+    });
+    
+    console.log('Dados a serem salvos:', { erros, responsavel: responsavel });
+    
+    fetch(`/api/atualizar_erros_responsavel/${prontuarioId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+            erros: erros,
+            responsavel: responsavel 
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.sucesso) {
+            bootstrap.Modal.getInstance(document.getElementById('modalGerenciarErros')).hide();
+            window.location.reload();
+        } else {
+            alert('Erro ao salvar erros: ' + data.erro);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao salvar erros');
+    });
+}
+
+// Inicializar quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    contadorErros = 0;
+    contadorErrosExistente = 0;
+});
+</script>
+{% endblock %}

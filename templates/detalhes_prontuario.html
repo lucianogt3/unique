@@ -1,0 +1,696 @@
+{% extends "base.html" %}
+
+{% block header_title %}Detalhes do Prontuário - {{ prontuario.beneficiario }}{% endblock %}
+
+{% block content %}
+<div class="content-section">
+    <!-- Cabeçalho com breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('prontuarios') }}">Prontuários</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ prontuario.beneficiario }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">Detalhes do Prontuário</h2>
+            <p class="text-muted mb-0">ID: #{{ prontuario.id }}</p>
+        </div>
+        <a href="{{ url_for('prontuarios') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Voltar para Lista
+        </a>
+    </div>
+
+    <!-- Cards de Informações Principais -->
+    <div class="row mb-4">
+        <!-- Informações do Paciente -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user-injured me-2"></i>Informações do Paciente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="info-item mb-3">
+                                <label class="text-muted small mb-1">Beneficiário</label>
+                                <p class="mb-0 fw-bold fs-5">{{ prontuario.beneficiario }}</p>
+                            </div>
+                            <div class="info-item mb-3">
+                                <label class="text-muted small mb-1">Convênio</label>
+                                <p class="mb-0">
+                                    <span class="badge bg-info">{{ prontuario.convenio }}</span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="info-item mb-3">
+                                <label class="text-muted small mb-1">Setor</label>
+                                <p class="mb-0">
+                                    <span class="badge bg-secondary">{{ prontuario.setor }}</span>
+                                </p>
+                            </div>
+                            <div class="info-item mb-3">
+                                <label class="text-muted small mb-1">Nº Atendimento</label>
+                                <p class="mb-0 fw-bold">{{ prontuario.atendimento }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Responsáveis Atuais -->
+                    <div class="mt-3 pt-3 border-top">
+                        <label class="text-muted small mb-2">Responsáveis pelo Prontuário:</label>
+                        <div>
+                            {% if prontuario.responsaveis and prontuario.responsaveis|length > 0 %}
+                                {% for responsavel in prontuario.responsaveis %}
+                                    <span class="badge bg-primary me-1 mb-1">{{ responsavel }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted">Nenhum responsável atribuído</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status e Datas -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-light py-3">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>Status e Datas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <div class="status-badge-large mb-3">
+                            <span class="status-badge status-{{ prontuario.status|lower|replace(' ', '-') }} px-3 py-2">
+                                {{ prontuario.status }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="timeline-mini">
+                        <div class="timeline-item-mini">
+                            <div class="timeline-marker-mini bg-primary"></div>
+                            <div class="timeline-content-mini">
+                                <small class="text-muted">Admissão</small>
+                                <p class="mb-0 fw-bold">{{ prontuario.admissao }}</p>
+                            </div>
+                        </div>
+                        {% if prontuario.alta %}
+                        <div class="timeline-item-mini">
+                            <div class="timeline-marker-mini bg-success"></div>
+                            <div class="timeline-content-mini">
+                                <small class="text-muted">Alta</small>
+                                <p class="mb-0 fw-bold">{{ prontuario.alta }}</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Alterar Status -->
+                    <div class="mt-4 pt-3 border-top">
+                        <label class="form-label small text-muted mb-2">Alterar Status:</label>
+                        <div class="d-flex gap-2">
+                            <select id="statusSelect" class="form-select form-select-sm">
+                                {% for status in status_opcoes %}
+                                <option value="{{ status }}" {% if status == prontuario.status %}selected{% endif %}>{{ status }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="atualizarStatus({{ prontuario.id }})">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Erros Identificados -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white border-bottom py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                            Erros Identificados
+                            <span class="badge bg-warning ms-2">{{ prontuario.erros|length if prontuario.erros else 0 }}</span>
+                        </h5>
+                        <div class="text-muted small">
+                            Total de ocorrências: 
+                            <span class="fw-bold text-dark">
+                                {% set total_ocorrencias = 0 %}
+                                {% if prontuario.erros %}
+                                    {% for erro in prontuario.erros %}
+                                        {% set quantidade = erro.quantidade if erro.quantidade is defined else 1 %}
+                                        {% set total_ocorrencias = total_ocorrencias + quantidade %}
+                                    {% endfor %}
+                                {% endif %}
+                                {{ total_ocorrencias }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if prontuario.erros and prontuario.erros|length > 0 %}
+                    <div class="row g-3">
+                        {% for erro in prontuario.erros %}
+                        {% set tipo_normalizado = erro.tipo|lower %}
+                        {% set info_erro = tipos_erro.get(tipo_normalizado) %}
+                        {% set quantidade = erro.quantidade if erro.quantidade is defined else 1 %}
+                        <div class="col-lg-6">
+                            <div class="error-card card border h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div class="d-flex align-items-center">
+                                            <span class="error-type-icon me-2" style="color: {{ info_erro.cor if info_erro else '#6c757d' }};">
+                                                <i class="fas {{ info_erro.icone if info_erro else 'fa-exclamation-circle' }}"></i>
+                                            </span>
+                                            <span class="error-badge {{ info_erro.classe if info_erro else 'error-documentacao' }}">
+                                                {{ info_erro.nome if info_erro else erro.tipo }}
+                                            </span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <!-- Badge de Quantidade -->
+                                            <span class="badge bg-primary" title="Quantidade de ocorrências">
+                                                {{ quantidade }}
+                                            </span>
+                                            <!-- Responsável do erro -->
+                                            {% if erro.responsavel_nome %}
+                                            <span class="badge bg-info" title="Responsável">
+                                                {{ erro.responsavel_nome }}
+                                            </span>
+                                            {% endif %}
+                                            <button class="btn btn-sm btn-outline-danger btn-icon" 
+                                                    onclick="removerErro({{ prontuario.id }}, '{{ erro.tipo }}', '{{ erro.causa }}')"
+                                                    title="Remover erro">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="error-details">
+                                        <small class="text-muted">Causa específica:</small>
+                                        <p class="mb-0 fw-semibold text-dark">{{ erro.causa }}</p>
+                                    </div>
+                                    {% if erro.data_deteccao %}
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-clock me-1"></i>
+                                            Detectado em {{ erro.data_deteccao }}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <div class="empty-state">
+                            <i class="fas fa-check-circle text-success fa-3x mb-3"></i>
+                            <h5 class="text-muted">Nenhum erro identificado</h5>
+                            <p class="text-muted">Este prontuário não possui erros registrados.</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Adicionar Novo Erro -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-light py-3">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-plus-circle text-success me-2"></i>
+                        Adicionar Novo Erro
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="formNovoErro">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Tipo de Erro *</label>
+                                <select class="form-select" id="tipoErroSelect" name="tipo_erro" required onchange="carregarCausas()">
+                                    <option value="">Selecione o tipo de erro...</option>
+                                    {% for tipo_key, tipo_value in tipos_erro.items() %}
+                                    <option value="{{ tipo_key }}">{{ tipo_value.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Causa do Erro *</label>
+                                <select class="form-select" id="causaSelect" name="causa" required disabled>
+                                    <option value="">Selecione o tipo primeiro...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold">Responsável *</label>
+                                <select class="form-select" id="responsavelSelect" name="responsavel" required>
+                                    <option value="">Selecione o responsável...</option>
+                                    {% for responsavel in responsaveis %}
+                                    <option value="{{ responsavel.id }}">{{ responsavel.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold">Quantidade *</label>
+                                <input type="number" class="form-control" id="quantidadeInput" name="quantidade" 
+                                       min="1" max="100" value="1" required>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="button" class="btn btn-success w-100" onclick="adicionarErro({{ prontuario.id }})">
+                                    <i class="fas fa-plus me-1"></i>Adicionar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Histórico de Alterações -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-bottom py-3">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history text-primary me-2"></i>
+                        Histórico de Alterações
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if prontuario.historico and prontuario.historico|length > 0 %}
+                    <div class="timeline-modern">
+                        {% for alteracao in prontuario.historico %}
+                        <div class="timeline-item-modern">
+                            <div class="timeline-marker-modern 
+                                {% if 'status' in alteracao.acao|lower %}bg-warning
+                                {% elif 'erro' in alteracao.acao|lower %}bg-danger
+                                {% else %}bg-primary{% endif %}">
+                                <i class="fas 
+                                    {% if 'status' in alteracao.acao|lower %}fa-sync-alt
+                                    {% elif 'erro' in alteracao.acao|lower %}fa-exclamation-triangle
+                                    {% else %}fa-edit{% endif %}"></i>
+                            </div>
+                            <div class="timeline-content-modern">
+                                <div class="timeline-header-modern">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <h6 class="mb-1">{{ alteracao.acao }}</h6>
+                                        <small class="text-muted">{{ alteracao.data }}</small>
+                                    </div>
+                                </div>
+                                <div class="timeline-body-modern">
+                                    {% if alteracao.detalhes %}
+                                    <p class="mb-2 text-dark">{{ alteracao.detalhes }}</p>
+                                    {% endif %}
+                                    {% if alteracao.usuario %}
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-user-circle text-muted me-1"></i>
+                                        <small class="text-muted">{{ alteracao.usuario }}</small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <div class="empty-state">
+                            <i class="fas fa-info-circle text-muted fa-3x mb-3"></i>
+                            <h5 class="text-muted">Nenhum histórico disponível</h5>
+                            <p class="text-muted">As alterações neste prontuário aparecerão aqui.</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+/* Estilos para a nova visualização */
+.card {
+    border-radius: 12px;
+}
+
+.card-header {
+    border-radius: 12px 12px 0 0 !important;
+}
+
+.status-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 20px;
+}
+
+.status-badge-large .status-badge {
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+}
+
+.status-pendente { background-color: #fff3cd; color: #856404; }
+.status-em-andamento { background-color: #cce7ff; color: #004085; }
+.status-concluido { background-color: #d1edff; color: #0c5460; }
+.status-atrasado { background-color: #f8d7da; color: #721c24; }
+
+.error-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-left: 4px solid #dc3545;
+}
+
+.error-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.error-type-icon {
+    font-size: 1.1rem;
+}
+
+.error-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+/* Timeline Moderno */
+.timeline-modern {
+    position: relative;
+    padding-left: 2rem;
+}
+
+.timeline-modern::before {
+    content: '';
+    position: absolute;
+    left: 1rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e9ecef;
+}
+
+.timeline-item-modern {
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+.timeline-marker-modern {
+    position: absolute;
+    left: -2rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.9rem;
+    z-index: 2;
+}
+
+.timeline-content-modern {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 1.25rem;
+    border-left: 3px solid #007bff;
+}
+
+.timeline-header-modern h6 {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+/* Timeline Mini para Datas */
+.timeline-mini {
+    position: relative;
+}
+
+.timeline-item-mini {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.timeline-marker-mini {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 1rem;
+    flex-shrink: 0;
+}
+
+.timeline-content-mini small {
+    font-size: 0.75rem;
+}
+
+/* Estados vazios */
+.empty-state {
+    padding: 2rem 1rem;
+}
+
+.empty-state i {
+    opacity: 0.7;
+}
+
+/* Badge de quantidade */
+.quantidade-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .timeline-modern {
+        padding-left: 1.5rem;
+    }
+    
+    .timeline-marker-modern {
+        left: -1.5rem;
+        width: 2rem;
+        height: 2rem;
+        font-size: 0.8rem;
+    }
+    
+    .row.g-3 > [class*="col-"] {
+        margin-bottom: 1rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Dados vindos do Backend
+const causasPorTipo = {
+    {% for tipo, info in tipos_erro.items() %}
+    "{{ tipo }}": {{ info.causas | tojson }},
+    {% endfor %}
+};
+
+// Função para carregar causas
+function carregarCausas() {
+    const tipoErroSelect = document.getElementById('tipoErroSelect');
+    const causaSelect = document.getElementById('causaSelect');
+    const tipoErro = tipoErroSelect.value;
+    
+    causaSelect.innerHTML = '<option value="">Selecione a causa...</option>';
+    
+    if (tipoErro && causasPorTipo[tipoErro]) {
+        causaSelect.disabled = false;
+        
+        causasPorTipo[tipoErro].forEach(causa => {
+            const option = document.createElement('option');
+            
+            if (typeof causa === 'object' && causa !== null) {
+                const texto = causa.descricao || causa.nome || "Erro sem descrição";
+                option.value = texto; 
+                option.textContent = texto;
+            } else {
+                option.value = causa;
+                option.textContent = causa;
+            }
+            
+            causaSelect.appendChild(option);
+        });
+    } else {
+        causaSelect.disabled = true;
+        causaSelect.innerHTML = '<option value="">Selecione o tipo primeiro...</option>';
+    }
+}
+
+// Funções de API
+function atualizarStatus(prontuarioId) {
+    const novoStatus = document.getElementById('statusSelect').value;
+    
+    fetch(`/api/atualizar_status/${prontuarioId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: novoStatus })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.sucesso) {
+            showNotification('Status atualizado com sucesso!', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showNotification('Erro ao atualizar status: ' + data.erro, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        showNotification('Erro ao atualizar status', 'error');
+    });
+}
+
+function adicionarErro(prontuarioId) {
+    const tipoErro = document.getElementById('tipoErroSelect').value;
+    const causa = document.getElementById('causaSelect').value;
+    const responsavelId = document.getElementById('responsavelSelect').value;
+    const quantidade = document.getElementById('quantidadeInput').value;
+    
+    console.log('🔍 Dados do formulário:');
+    console.log('  - Tipo Erro:', tipoErro);
+    console.log('  - Causa:', causa);
+    console.log('  - Responsável ID:', responsavelId);
+    console.log('  - Quantidade:', quantidade);
+    
+    if (!tipoErro) {
+        showNotification('Selecione um tipo de erro', 'warning');
+        return;
+    }
+    
+    if (!causa) {
+        showNotification('Selecione uma causa para o erro', 'warning');
+        return;
+    }
+    
+    if (!responsavelId) {
+        showNotification('Selecione um responsável para o erro', 'warning');
+        return;
+    }
+    
+    if (!quantidade || quantidade < 1) {
+        showNotification('Informe uma quantidade válida (mínimo 1)', 'warning');
+        return;
+    }
+    
+    // 🔥 CORREÇÃO: Enviar responsavel_id como número
+    const dados = {
+        tipo_erro: tipoErro,
+        causa: causa,
+        responsavel_id: parseInt(responsavelId),  // 🔥 Garantir que é número
+        quantidade: parseInt(quantidade)
+    };
+    
+    console.log('📤 Dados enviados para API:', dados);
+    
+    fetch(`/api/adicionar_erro_unico/${prontuarioId}`, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => {
+        console.log('📥 Status da resposta:', response.status);
+        return response.json().then(data => {
+            return { status: response.status, data: data };
+        });
+    })
+    .then(({ status, data }) => {
+        console.log('📥 Resposta da API:', data);
+        
+        if (status === 200 && data.sucesso) {
+            showNotification('Erro adicionado com sucesso!', 'success');
+            // Limpar formulário
+            document.getElementById('tipoErroSelect').value = '';
+            document.getElementById('causaSelect').innerHTML = '<option value="">Selecione o tipo primeiro...</option>';
+            document.getElementById('causaSelect').disabled = true;
+            document.getElementById('responsavelSelect').value = '';
+            document.getElementById('quantidadeInput').value = '1';
+            
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showNotification('Erro ao adicionar erro: ' + (data.erro || 'Erro desconhecido'), 'error');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erro na requisição:', error);
+        showNotification('Erro de conexão ao adicionar erro', 'error');
+    });
+}
+
+function removerErro(prontuarioId, tipoErro, causa) {
+    if (!confirm('Tem certeza que deseja remover este erro?')) {
+        return;
+    }
+    
+    fetch(`/api/remover_erro_unico/${prontuarioId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            tipo_erro: tipoErro,
+            causa: causa
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.sucesso) {
+            showNotification('Erro removido com sucesso!', 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showNotification('Erro ao remover erro: ' + data.erro, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        showNotification('Erro ao remover erro', 'error');
+    });
+}
+
+// Função auxiliar para notificações
+function showNotification(message, type = 'info') {
+    // Implementação básica - você pode integrar com uma lib de notificações
+    alert(message);
+}
+
+// Inicialização
+document.addEventListener('DOMContentLoaded', function() {
+    const tipoInicial = document.getElementById('tipoErroSelect').value;
+    if (tipoInicial) {
+        carregarCausas();
+    }
+});
+</script>
+{% endblock %}

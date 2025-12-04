@@ -1,0 +1,717 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block header_title %}Dashboard Analítico{% endblock %}
+
+{% block content %}
+
+<style>
+    /* CONFIGURAÇÕES DE IMPRESSÃO ROBUSTAS */
+    @media print {
+        @page {
+            size: landscape;
+            margin: 5mm;
+        }
+
+        body {
+            zoom: 75% !important; 
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            background-color: white !important;
+            overflow: visible !important;
+        }
+
+        .btn-toolbar, .btn, .modal, header, footer, .navbar, .no-print, h1.h2, .border-bottom {
+            display: none !important;
+        }
+
+        .print-title {
+            display: block !important;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .container-xxl, .container-fluid, .container, .row {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: block !important;
+        }
+
+        [class*="col-"] {
+            float: left !important;
+            padding-left: 5px !important;
+            padding-right: 5px !important;
+            min-height: 1px !important;
+        }
+
+        .col-md-3 { width: 25% !important; }
+        .col-lg-4 { width: 33.33% !important; }
+        .col-lg-5 { width: 41.66% !important; }
+        .col-lg-7 { width: 58.33% !important; }
+        .col-lg-8 { width: 66.66% !important; }
+        .col-12 { width: 100% !important; clear: both !important; }
+
+        .card {
+            border: 1px solid #ccc !important;
+            box-shadow: none !important;
+            margin-bottom: 15px !important;
+            page-break-inside: avoid !important;
+            background: #fff !important;
+        }
+
+        .card-body {
+            padding: 10px !important;
+        }
+
+        .chart-container {
+            height: 220px !important;
+            width: 100% !important;
+            position: relative !important;
+            overflow: hidden !important;
+        }
+        canvas {
+            max-height: 220px !important;
+            width: 100% !important;
+        }
+
+        .row:after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+        
+        .h2, .h4, h5, h6 { margin: 0 !important; color: #000 !important; }
+        .text-muted { color: #555 !important; }
+        
+        .rounded-circle {
+            background: transparent !important;
+            border: 1px solid #999;
+        }
+    }
+    
+    .print-title { display: none; }
+    
+    .metric-dual {
+        border-left: 4px solid #6f42c1 !important;
+    }
+    .metric-badge {
+        font-size: 0.75rem;
+        padding: 2px 6px;
+    }
+</style>
+
+<div class="container-xxl py-4">
+
+    <div class="print-title">
+        Dashboard de Auditoria - {{ periodo_info }}
+    </div>
+
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4 border-bottom">
+        <div>
+            <h1 class="h2">Dashboard de Auditoria</h1>
+            <div class="text-muted small">
+                <i class="fas fa-calendar-alt me-1"></i> Período: <strong>{{ periodo_info }}</strong>
+            </div>
+        </div>
+        <div class="btn-toolbar mb-2 mb-md-0 no-print">
+            <div class="btn-group me-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+                    <i class="fas fa-print me-1"></i> Imprimir
+                </button>
+                <a href="{{ url_for('relatorios') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-table me-1"></i> Relatórios
+                </a>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalFiltros">
+                <i class="fas fa-filter me-2"></i> Filtrar
+            </button>
+        </div>
+    </div>
+
+    <!-- CARDS PRINCIPAIS -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-start border-4 border-primary shadow-sm h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted small fw-bold mb-1">Contas Auditadas</h6>
+                            <h2 class="mb-0 display-6 fw-bold text-dark">{{ stats.total_registrados_mes }}</h2>
+                        </div>
+                        <div class="p-3 rounded-circle text-primary bg-primary bg-opacity-10">
+                            <i class="fas fa-file-invoice fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-4 border-danger shadow-sm h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted small fw-bold mb-1">Taxa de Erros</h6>
+                            <h2 class="mb-0 display-6 fw-bold text-dark">{{ stats.taxa_erros }}%</h2>
+                            <small class="text-muted" style="font-size: 0.75rem;">Meta: < {{ stats.meta_taxa_erros }}%</small>
+                        </div>
+                        <div class="p-3 rounded-circle text-danger bg-danger bg-opacity-10">
+                            <i class="fas fa-chart-line fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-4 border-warning shadow-sm h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted small fw-bold mb-1">Em Auditoria</h6>
+                            <h2 class="mb-0 display-6 fw-bold text-dark">{{ stats.aguardando_correcao }}</h2>
+                        </div>
+                        <div class="p-3 rounded-circle text-warning bg-warning bg-opacity-10">
+                            <i class="fas fa-clock fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-4 border-success shadow-sm h-100">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted small fw-bold mb-1">Entregues (Fat.)</h6>
+                            <h2 class="mb-0 display-6 fw-bold text-dark">{{ stats.entregue }}</h2>
+                        </div>
+                        <div class="p-3 rounded-circle text-success bg-success bg-opacity-10">
+                            <i class="fas fa-check-double fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOVOS CARDS DE MÉTRICAS DUPLAS -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-start border-4 border-info shadow-sm h-100 metric-dual">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted small fw-bold mb-1">Prontuários com Erro</h6>
+                            <h2 class="mb-1 display-6 fw-bold text-dark">{{ stats.total_prontuarios_com_erro }}</h2>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-info metric-badge">Contas: {{ stats.total_prontuarios_com_erro }}</span>
+                                <span class="badge bg-secondary metric-badge">Ocorrências: {{ stats.total_erros_registrados }}</span>
+                            </div>
+                        </div>
+                        <div class="p-3 rounded-circle text-info bg-info bg-opacity-10">
+                            <i class="fas fa-file-medical fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-start border-4 border-purple shadow-sm h-100 metric-dual">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted small fw-bold mb-1">Tipos de Erro</h6>
+                            <h2 class="mb-1 display-6 fw-bold text-dark">{{ stats.total_tipos_erro }}</h2>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-purple metric-badge">Categorias Diferentes</span>
+                            </div>
+                        </div>
+                        <div class="p-3 rounded-circle text-purple bg-purple bg-opacity-10">
+                            <i class="fas fa-tags fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-start border-4 border-teal shadow-sm h-100 metric-dual">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted small fw-bold mb-1">Média por Conta</h6>
+                            <h2 class="mb-1 display-6 fw-bold text-dark">{{ "%.1f"|format(stats.media_erros_por_prontuario) }}</h2>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-teal metric-badge">Erros/Prontuário</span>
+                            </div>
+                        </div>
+                        <div class="p-3 rounded-circle text-teal bg-teal bg-opacity-10">
+                            <i class="fas fa-calculator fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GRÁFICO DE PRODUTIVIDADE -->
+    <div class="card shadow-sm mb-4 border-0">
+        <div class="card-header bg-white py-2">
+            <h5 class="mb-0 fw-bold">Fluxo de Auditoria de Contas</h5>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="produtividadeChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- GRÁFICO HISTÓRICO + TOP MOTIVOS -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-header bg-white py-2">
+                    <h5 class="mb-0 fw-bold">Histórico de Ocorrências</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="errosMensaisChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold">Principais Motivos</h5>
+                    <small class="text-muted">Top 5</small>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for m in stats_top_motivos %}
+                    <div class="list-group-item d-flex justify-content-between align-items-start px-3 py-2">
+                        <div class="me-2 small" style="word-break: break-word;">{{ m.nome }}</div>
+                        <div class="text-end">
+                            <div class="fw-bold text-dark">{{ m.contagem }}</div>
+                            <small class="text-muted">prontuários</small>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="list-group-item text-center text-muted py-3">Sem dados</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DISTRIBUIÇÃO DETALHADA DE ERROS -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white py-2">
+            <h5 class="mb-0 fw-bold">Distribuição Detalhada de Erros</h5>
+            <small class="text-muted">Comparação: Prontuários vs Ocorrências</small>
+        </div>
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-lg-5 mb-3 mb-lg-0">
+                    <div class="chart-container">
+                        <canvas id="motivosErroChart"></canvas>
+                    </div>
+                </div>
+                <div class="col-lg-7">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm align-middle mb-0" style="font-size: 0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Tipo de Erro</th>
+                                    <th class="text-center">Prontuários</th>
+                                    <th class="text-center">%</th>
+                                    <th class="text-center">Ocorrências</th>
+                                    <th class="text-center">Média</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for motivo in stats_motivos_detalhados %}
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-circle me-2 small" style="color: {{ motivo.cor }}"></i>
+                                        <span title="{{ motivo.nome }}">{{ motivo.nome[:30] }}{% if motivo.nome|length > 30 %}...{% endif %}</span>
+                                    </td>
+                                    <td class="text-center fw-bold">{{ motivo.prontuarios_com_erro }}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary">{{ "%.1f"|format(motivo.taxa_prontuarios) }}%</span>
+                                    </td>
+                                    <td class="text-center fw-bold text-danger">{{ motivo.total_ocorrencias }}</td>
+                                    <td class="text-center">
+                                        <small class="text-muted">{{ "%.1f"|format(motivo.media_por_prontuario) }}</small>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">Nenhum erro registrado no período</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            {% if stats_motivos_detalhados %}
+                            <tfoot class="table-light fw-bold">
+                                <tr>
+                                    <td>Total</td>
+                                    <td class="text-center">{{ stats.total_prontuarios_com_erro }}</td>
+                                    <td class="text-center">100%</td>
+                                    <td class="text-center">{{ stats.total_erros_registrados }}</td>
+                                    <td class="text-center">{{ "%.1f"|format(stats.media_erros_por_prontuario) }}</td>
+                                </tr>
+                            </tfoot>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DISTRIBUIÇÃO POR SETOR, RESPONSÁVEL E CONVÊNIO -->
+    <div class="row g-4 mb-5">
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white py-2">
+                    <h6 class="mb-0 fw-bold">Por Setor</h6>
+                    <small class="text-muted">Prontuários com erro</small>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm table-striped mb-0 small">
+                        <tbody>
+                            {% for s in stats_top_setores %}
+                            <tr>
+                                <td class="ps-3">{{ s.nome }}</td>
+                                <td class="text-end pe-3">
+                                    <span class="fw-bold">{{ s.prontuarios_com_erro }}</span>
+                                    <br>
+                                    <small class="text-muted">{{ "%.1f"|format(s.taxa) }}%</small>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="2" class="text-center text-muted py-2">Sem dados</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white py-2">
+                    <h6 class="mb-0 fw-bold">Por Responsável</h6>
+                    <small class="text-muted">Prontuários com erro</small>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm table-striped mb-0 small">
+                        <tbody>
+                            {% for r in stats_responsavel %}
+                            <tr>
+                                <td class="ps-3">{{ r.nome }}</td>
+                                <td class="text-end pe-3">
+                                    <span class="fw-bold">{{ r.prontuarios_com_erro }}</span>
+                                    <br>
+                                    <small class="text-muted">{{ "%.1f"|format(r.taxa) }}%</small>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="2" class="text-center text-muted py-2">Sem dados</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white py-2">
+                    <h6 class="mb-0 fw-bold">Por Convênio</h6>
+                    <small class="text-muted">Prontuários com erro</small>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm table-striped mb-0 small">
+                        <tbody>
+                            {% for c in stats_convenio %}
+                            <tr>
+                                <td class="ps-3">{{ c.nome }}</td>
+                                <td class="text-end pe-3">
+                                    <span class="fw-bold">{{ c.prontuarios_com_erro }}</span>
+                                    <br>
+                                    <small class="text-muted">{{ "%.1f"|format(c.taxa) }}%</small>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="2" class="text-center text-muted py-2">Sem dados</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- MODAL DE FILTROS -->
+<div class="modal fade no-print" id="modalFiltros" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Filtrar Dashboard</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formFiltrosDashboard" action="{{ url_for('index') }}" method="GET">
+                    <div class="btn-group w-100 mb-3">
+                        <button type="submit" name="periodo" value="mes" class="btn btn-outline-primary">Este Mês</button>
+                        <button type="submit" name="periodo" value="mes_passado" class="btn btn-outline-primary">Mês Passado</button>
+                        <button type="submit" name="periodo" value="ano" class="btn btn-outline-primary">Este Ano</button>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6"><label class="small">Início</label><input type="date" name="data_inicio" class="form-control"></div>
+                        <div class="col-6"><label class="small">Fim</label><input type="date" name="data_fim" class="form-control"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                 <button type="button" class="btn btn-primary" onclick="document.getElementById('formFiltrosDashboard').submit()">Aplicar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL NOVO PRONTUÁRIO -->
+<div class="modal fade no-print" id="modalNovoProntuario" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Novo Prontuário</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <form id="formNovoProntuario">
+                    <div class="row g-3">
+                        <div class="col-md-6"><label>Beneficiário *</label><input name="beneficiario" class="form-control" required></div>
+                        <div class="col-md-6"><label>Atendimento *</label><input name="atendimento" class="form-control" required></div>
+                        <div class="col-md-6"><label>Convênio *</label><select name="convenio" class="form-select">{% for c in convenios %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select></div>
+                        <div class="col-md-6"><label>Setor *</label><select name="setor" class="form-select">{% for s in setores %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select></div>
+                        <div class="col-md-4"><label class="small fw-bold text-primary">Data Conta</label><input name="data_conta" type="date" class="form-control"></div>
+                        <div class="col-md-4"><label class="small fw-bold text-info">Entrega Auditoria</label><input name="data_entrega_auditoria" type="date" class="form-control"></div>
+                        <div class="col-md-4"><label class="small fw-bold text-success">Entrega Faturamento</label><input name="data_entrega_faturamento" type="date" class="form-control"></div>
+                        <div class="col-12"><label>Responsáveis</label><select name="responsaveis" class="form-select" multiple>{% for r in responsaveis %}<option value="{{ r }}">{{ r }}</option>{% endfor %}</select></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-primary" onclick="salvarNovoProntuario()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Configuração Global Charts
+Chart.defaults.font.family = "'Segoe UI', 'Helvetica Neue', 'Arial', sans-serif";
+Chart.defaults.responsive = true;
+Chart.defaults.maintainAspectRatio = false;
+
+function abrirModalNovoProntuario() {
+    try { document.querySelector('[name="data_conta"]').value = new Date().toISOString().split('T')[0]; } catch(e){}
+    new bootstrap.Modal(document.getElementById('modalNovoProntuario')).show();
+}
+
+function salvarNovoProntuario() {
+    const form = document.getElementById('formNovoProntuario');
+    const formData = new FormData(form);
+    const dados = Object.fromEntries(formData.entries());
+    dados.responsaveis = Array.from(form.querySelector('[name="responsaveis"]').selectedOptions).map(o => o.value);
+    if(!dados.beneficiario || !dados.atendimento) { alert('Preencha os campos obrigatórios.'); return; }
+    fetch('{{ url_for("adicionar_prontuario") }}', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(dados)
+    }).then(r => r.json()).then(d => {
+        if(d.sucesso) window.location.reload(); else alert(d.erro || 'Erro');
+    });
+}
+
+// DEBUG - Verificar dados no console
+console.log("=== 🐛 DEBUG DASHBOARD ===");
+console.log("Stats:", {{ stats | tojson }});
+console.log("Motivos detalhados:", {{ stats_motivos_detalhados | tojson }});
+console.log("Total prontuários com erro:", {{ stats.total_prontuarios_com_erro }});
+console.log("Total tipos de erro:", {{ stats.total_tipos_erro }});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Gráfico de Produtividade
+    const dadosProd = {{ dados_grafico_produtividade | tojson }};
+    console.log("📊 Dados produtividade:", dadosProd);
+    
+    if (dadosProd && dadosProd.labels && dadosProd.labels.length > 0) {
+        new Chart(document.getElementById('produtividadeChart'), {
+            type: 'line',
+            data: { 
+                labels: dadosProd.labels, 
+                datasets: [{ 
+                    label: 'Contas Auditadas', 
+                    data: dadosProd.valores, 
+                    borderColor: '#0d6efd', 
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)', 
+                    fill: true, 
+                    tension: 0.3 
+                }] 
+            },
+            options: { 
+                plugins: { legend: { display: false } }, 
+                scales: { 
+                    y: { beginAtZero: true },
+                    x: { grid: { display: false } } 
+                } 
+            }
+        });
+    } else {
+        console.log("⚠️ Sem dados para gráfico de produtividade");
+    }
+
+    // Gráfico de Erros Mensais
+    const dadosErros = {{ dados_erros_mensais | tojson }};
+    console.log("📊 Dados erros mensais:", dadosErros);
+    
+    if (dadosErros && dadosErros.labels && dadosErros.labels.length > 0) {
+        new Chart(document.getElementById('errosMensaisChart'), {
+            type: 'bar',
+            data: { 
+                labels: dadosErros.labels, 
+                datasets: [{ 
+                    label: 'Total de Ocorrências', 
+                    data: dadosErros.valores, 
+                    backgroundColor: '#dc3545', 
+                    borderRadius: 4 
+                }] 
+            },
+            options: { 
+                plugins: { legend: { display: false } }, 
+                scales: { 
+                    y: { 
+                        beginAtZero: true, 
+                        grid: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Ocorrências'
+                        }
+                    }, 
+                    x: { grid: { display: false } } 
+                } 
+            }
+        });
+    } else {
+        console.log("⚠️ Sem dados para gráfico de erros mensais");
+    }
+
+    // Gráfico de Pizza - Motivos de Erro
+    const dadosMotivos = {{ stats_motivos_detalhados | tojson }};
+    console.log("📊 Dados para gráfico de pizza:", dadosMotivos);
+    
+    const ctx = document.getElementById('motivosErroChart');
+    
+    if (dadosMotivos && dadosMotivos.length > 0) {
+        console.log("✅ Criando gráfico de pizza com", dadosMotivos.length, "itens");
+        
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: { 
+                labels: dadosMotivos.map(m => m.nome), 
+                datasets: [{ 
+                    data: dadosMotivos.map(m => m.prontuarios_com_erro), 
+                    backgroundColor: dadosMotivos.map(m => m.cor), 
+                    borderWidth: 0 
+                }] 
+            },
+            options: { 
+                cutout: '75%', 
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                const total = {{ stats.total_prontuarios_com_erro | default(1) }};
+                                let percentage = 0;
+                                if (total > 0) {
+                                    percentage = ((value / total) * 100).toFixed(1);
+                                }
+                                return `${label}: ${value} prontuários (${percentage}%)`;
+                            }
+                        }
+                    }
+                } 
+            }
+        });
+    } else {
+        console.log("⚠️ Nenhum dado para o gráfico de pizza - criando gráfico vazio");
+        
+        // Criar gráfico vazio com mensagem
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: { 
+                labels: ['Sem dados disponíveis'], 
+                datasets: [{ 
+                    data: [1], 
+                    backgroundColor: ['#e9ecef'], 
+                    borderWidth: 0 
+                }] 
+            },
+            options: { 
+                cutout: '75%', 
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: false
+                    }
+                } 
+            }
+        });
+        
+        // Adicionar mensagem no elemento
+        ctx.parentNode.innerHTML += '<div class="text-center text-muted mt-3">Nenhum dado disponível para o período selecionado</div>';
+    }
+});
+
+// Verificar se os elementos canvas existem
+document.addEventListener('DOMContentLoaded', function() {
+    const canvases = document.querySelectorAll('canvas');
+    console.log(`🎨 Encontrados ${canvases.length} elementos canvas na página`);
+    
+    canvases.forEach((canvas, index) => {
+        console.log(`Canvas ${index + 1}:`, canvas.id, canvas.offsetWidth, 'x', canvas.offsetHeight);
+    });
+});
+</script>
+
+<!-- CSS para cores adicionais -->
+<style>
+    .border-purple { border-color: #6f42c1 !important; }
+    .text-purple { color: #6f42c1 !important; }
+    .bg-purple { background-color: #6f42c1 !important; }
+    
+    .border-teal { border-color: #20c997 !important; }
+    .text-teal { color: #20c997 !important; }
+    .bg-teal { background-color: #20c997 !important; }
+    
+    /* Estilos para garantir que os gráficos sejam visíveis */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+    
+    .chart-container canvas {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+</style>
+{% endblock %}

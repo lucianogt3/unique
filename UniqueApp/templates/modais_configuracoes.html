@@ -1,0 +1,214 @@
+<div class="modal fade" id="modalConvenio" tabindex="-1" aria-labelledby="modalConvenioTitle" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalConvenioTitle">Novo Convênio</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+
+      <form id="formConvenio" onsubmit="return false;" autocomplete="off">
+        <input type="hidden" id="convenio_id" name="id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="convenio_nome" class="form-label">Nome do Convênio *</label>
+            <input type="text" class="form-control" id="convenio_nome" name="nome" required>
+          </div>
+          <div class="mb-3">
+            <label for="convenio_status" class="form-label">Status</label>
+            <select class="form-select" id="convenio_status" name="status" required>
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" onclick="salvarConvenio()">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalSetor" tabindex="-1" aria-labelledby="modalSetorTitle" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalSetorTitle">Novo Setor</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+
+      <form id="formSetor" onsubmit="return false;" autocomplete="off">
+        <input type="hidden" id="setor_id" name="id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="setor_nome" class="form-label">Nome do Setor *</label>
+            <input type="text" class="form-control" id="setor_nome" name="nome" required>
+          </div>
+          <div class="mb-3">
+            <label for="setor_descricao" class="form-label">Descrição</label>
+            <textarea class="form-control" id="setor_descricao" name="descricao" rows="3"></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="setor_status" class="form-label">Status</label>
+            <select class="form-select" id="setor_status" name="status" required>
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" onclick="salvarSetor()">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalResponsavel" tabindex="-1" aria-labelledby="modalResponsavelTitle" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalResponsavelTitle">Novo Responsável</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+
+      <form id="formResponsavel" onsubmit="return false;" autocomplete="off">
+        <input type="hidden" id="responsavel_id" name="id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="responsavel_nome" class="form-label">Nome *</label>
+            <input type="text" class="form-control" id="responsavel_nome" name="nome" required>
+          </div>
+          <div class="mb-3">
+            <label for="responsavel_funcao" class="form-label">Função *</label>
+            <input type="text" class="form-control" id="responsavel_funcao" name="funcao" required>
+          </div>
+          <div class="mb-3">
+            <label for="responsavel_setor" class="form-label">Setor</label>
+            <input type="text" class="form-control" id="responsavel_setor" name="setor">
+          </div>
+          <div class="mb-3">
+            <label for="responsavel_status" class="form-label">Status</label>
+            <select class="form-select" id="responsavel_status" name="status" required>
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" onclick="salvarResponsavel()">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalTipoErro" tabindex="-1" aria-labelledby="modalTipoErroTitle" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTipoErroTitle">Novo Motivo (Tipo de Erro)</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+
+      <form id="formTipoErro" onsubmit="return false;" autocomplete="off">
+        <input type="hidden" id="tipo_erro_id" name="id">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="tipo_erro_nome" class="form-label">Nome do Motivo *</label>
+            <input type="text" class="form-control" id="tipo_erro_nome" name="nome" required placeholder="Ex: Documentação, Registro, Procedimentos...">
+          </div>
+          <div class="mb-3">
+            <label for="tipo_erro_descricao" class="form-label">Descrição</label>
+            <textarea class="form-control" id="tipo_erro_descricao" name="descricao" rows="2" placeholder="Descrição opcional do tipo de erro"></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="tipo_erro_cor" class="form-label">Cor de Identificação</label>
+            <input type="color" class="form-control form-control-color" id="tipo_erro_cor" name="cor" value="#dc3545">
+          </div>
+          <div class="mb-3">
+            <label for="tipo_erro_status" class="form-label">Status</label>
+            <select class="form-select" id="tipo_erro_status" name="status" required>
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" onclick="salvarTipoErro()">Salvar Motivo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalCausa" tabindex="-1" aria-labelledby="modalCausaTitle" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalCausaTitle">Nova Causa de Erro</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+
+      <form id="formCausa" onsubmit="return false;" autocomplete="off">
+        <input type="hidden" id="causa_id" name="id">
+        <input type="hidden" id="causa_motivo_pre_selecionado" name="motivo_pre_selecionado" value="false">
+
+        <div class="modal-body">
+          <div class="mb-3" id="campo_selecionar_motivo">
+            <label for="causa_tipo_erro" class="form-label">Motivo (Tipo de Erro) *</label>
+            <select class="form-select" id="causa_tipo_erro" name="tipo_erro_id">
+              <option value="">Selecione um motivo</option>
+              {% if tipos_erro is mapping %}
+                  {% for codigo, info in tipos_erro.items() %}
+                    <option value="{{ info.id }}">{{ info.nome }}</option>
+                  {% endfor %}
+              {% elif tipos_erro_lista %}
+                  {% for tipo in tipos_erro_lista %}
+                    <option value="{{ tipo.id }}">{{ tipo.nome }}</option>
+                  {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+
+          <div class="alert alert-info d-none" id="info_motivo_pre_selecionado">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <strong>Motivo selecionado:</strong>
+                <span id="texto_motivo_pre_selecionado" class="ms-1"></span>
+              </div>
+              <button type="button" class="btn btn-link btn-sm p-0 m-0" id="btnTrocarMotivo" onclick="ativarModoSelecaoMotivo()">Trocar motivo</button>
+            </div>
+            <input type="hidden" id="hidden_tipo_erro_id" name="tipo_erro_id_hidden">
+          </div>
+
+          <div class="mb-3">
+            <label for="causa_descricao" class="form-label">Descrição da Causa *</label>
+            <textarea class="form-control" id="causa_descricao" name="descricao" rows="3" required placeholder="Descreva a causa específica do erro"></textarea>
+          </div>
+
+          <div class="mb-3">
+            <label for="causa_status" class="form-label">Status</label>
+            <select class="form-select" id="causa_status" name="status" required>
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" onclick="salvarCausa()">Salvar Causa</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

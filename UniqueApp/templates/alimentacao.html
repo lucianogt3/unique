@@ -1,0 +1,851 @@
+{% extends "base.html" %}
+{% block title %}Alimentação de Dados{% endblock %}
+
+{% block header_title %}Novo Prontuário{% endblock %}
+
+{% block content %}
+<style>
+/* Animações modernas */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes checkmark {
+    0% {
+        stroke-dashoffset: 100;
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+    100% {
+        stroke-dashoffset: 0;
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Notificação moderna */
+.modern-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    min-width: 300px;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    animation: slideInUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.notification-success {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}
+
+.notification-warning {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+}
+
+.notification-danger {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+}
+
+.notification-info {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+}
+
+/* Spinner moderno */
+.modern-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top: 2px solid white;
+    animation: spin 1s linear infinite;
+}
+
+/* Checkmark animado */
+.checkmark {
+    width: 24px;
+    height: 24px;
+    stroke: white;
+    stroke-width: 3;
+    fill: none;
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: checkmark 0.6s ease-in-out forwards;
+}
+
+/* Botão com loading */
+.btn-loading {
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        left: -100%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+/* Progress bar */
+.progress-bar {
+    height: 3px;
+    background: linear-gradient(90deg, #10b981, #34d399, #10b981);
+    background-size: 200% 100%;
+    animation: progressShimmer 2s linear infinite;
+    border-radius: 3px;
+}
+
+@keyframes progressShimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* Confetti animation */
+@keyframes confettiFall {
+    0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0;
+    }
+}
+</style>
+
+<div class="content-section">
+    <form id="formAlimentacao">
+        
+        <!-- Seção 1: Paciente e Atendimento -->
+        <div class="mb-4 pb-3 border-bottom">
+            <h5 class="mb-3"><i class="fas fa-user-injured"></i> Paciente e Atendimento</h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="beneficiario" class="form-label">Beneficiário <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="beneficiario" name="beneficiario" required
+                           placeholder="Digite o nome completo do paciente">
+                </div>
+                <div class="col-md-6">
+                    <label for="convenio" class="form-label">Convênio <span class="text-danger">*</span></label>
+                    <select class="form-select" id="convenio" name="convenio" required>
+                        <option value="">Selecione o convênio...</option>
+                        {% for c in convenios %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="setor" class="form-label">Setor <span class="text-danger">*</span></label>
+                    <select class="form-select" id="setor" name="setor" required>
+                        <option value="">Selecione o setor...</option>
+                        {% for s in setores %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="atendimento" class="form-label">Nº Atendimento <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="atendimento" name="atendimento" required
+                           placeholder="Número do atendimento">
+                </div>
+                <div class="col-md-2">
+                    <label for="diarias" class="form-label">Diárias</label>
+                    <input type="number" class="form-control" id="diarias" name="diarias" min="0" value="0">
+                </div>
+                 <div class="col-md-2">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select" id="status" name="status">
+                        {% for s in status_opcoes %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Seção 2: Datas -->
+        <div class="mb-4 pb-3 border-bottom">
+            <h5 class="mb-3"><i class="fas fa-calendar-alt"></i> Datas Relevantes</h5>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label for="admissao" class="form-label">Admissão <span class="text-danger">*</span></label>
+                    <input type="date" class="form-control" id="admissao" name="admissao" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="alta" class="form-label">Alta</label>
+                    <input type="date" class="form-control" id="alta" name="alta">
+                </div>
+                <div class="col-md-4">
+                    <label for="recebimento_prontuario" class="form-label">Recebimento Prontuário</label>
+                    <input type="date" class="form-control" id="recebimento_prontuario" name="recebimento_prontuario">
+                 </div>
+                 
+                <div class="col-md-4">
+                    <label for="enviado_faturamento" class="form-label">Envio p/ Faturamento</label>
+                    <input type="date" class="form-control" id="enviado_faturamento" name="enviado_faturamento">
+                </div>
+                <div class="col-md-4">
+                    <label for="data_conta" class="form-label">Data da Conta</label>
+                    <input type="date" class="form-control" id="data_conta" name="data_conta">
+                </div>
+                <div class="col-md-4">
+                    <label for="fim_auditoria" class="form-label">Fim da Auditoria</label>
+                    <input type="date" class="form-control" id="fim_auditoria" name="fim_auditoria">
+                </div>
+            </div>
+        </div>
+
+        <!-- Seção 3: Responsáveis e Erros -->
+        <div class="mb-4 pb-3 border-bottom">
+            <h5 class="mb-3"><i class="fas fa-users"></i> Responsáveis e Erros</h5>
+            
+            <div class="alert alert-info">
+                <small><i class="fas fa-info-circle"></i> <strong>INSTRUÇÕES:</strong> Selecione um responsável e adicione os erros vinculados a ele.</small>
+            </div>
+
+            <!-- Seleção de Responsável -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                     <label for="selectResponsavel" class="form-label">Selecionar Responsável <span class="text-danger">*</span></label>
+                    <select class="form-select" id="selectResponsavel" name="responsavel">
+                        <option value="">Selecione um responsável...</option>
+                        
+                        <!-- 
+                          🔥🔥🔥 CORREÇÃO APLICADA AQUI 🔥🔥🔥
+                          Agora usamos r.id para o valor (value) e r.nome para o texto.
+                        -->
+                        {% for r in responsaveis %}
+                        <option value="{{ r.id }}">{{ r.nome }}</option>
+                        {% endfor %}
+
+                    </select>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                    <button type="button" class="btn btn-outline-primary w-100" id="btnAdicionarResponsavel">
+                        <i class="fas fa-plus"></i> Adicionar à Lista
+                    </button>
+                </div>
+            </div>
+
+            <!-- Lista de Responsáveis Adicionados -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="fas fa-list-check"></i> Responsáveis Vinculados</h6>
+                </div>
+                <div class="card-body">
+                    <div id="lista-responsaveis" class="mb-3">
+                        <div class="text-center text-muted py-3" id="nenhum-responsavel-mensagem">
+                            <i class="fas fa-users-slash fa-2x mb-2"></i>
+                            <p class="mb-0">Nenhum responsável adicionado</p>
+                            <small>Selecione um responsável e clique em "Adicionar à Lista"</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulário de Erros -->
+            <div id="formulario-erros" style="display: none;">
+                <div class="card">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Adicionar Erros para: 
+                            <span id="responsavel-atual" class="fw-bold"></span>
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <label for="selectTipoErro" class="form-label">Tipo de Erro</label>
+                                <select class="form-select" id="selectTipoErro">
+                                    <option value="">Selecione um tipo...</option>
+                                    {% for codigo, info in tipos_erro.items() %}
+                                        {% if info.status == 'ativo' %}
+                                        <option value="{{ codigo }}" data-nome="{{ info.nome }}">{{ info.nome }} ({{ codigo }})</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="selectCausaErro" class="form-label">Causa Específica</label>
+                                <select class="form-select" id="selectCausaErro" disabled>
+                                    <option value="">Selecione o tipo primeiro</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="quantidadeErro" class="form-label">Quantidade</label>
+                                <input type="number" class="form-control" id="quantidadeErro" min="1" value="1">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="button" class="btn btn-success w-100" id="btnAdicionarErro">
+                                    <i class="fas fa-plus"></i> Add Erro
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                        
+                <div id="erros-container-dinamico" class="mt-3"></div>
+                        
+                <div id="nenhum-erro-mensagem" class="text-center text-muted py-4 border rounded">
+                    <i class="fas fa-info-circle fa-2x mb-2"></i>
+                    <p class="mb-0">Nenhum erro adicionado para este responsável</p>
+                    <small>Use o formulário acima para adicionar erros</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Seção 4: Observações -->
+        <div class="mb-4">
+            <h5 class="mb-3"><i class="fas fa-clipboard-list"></i> Observações</h5>
+            <div>
+                <label for="observacao" class="form-label">Observações Gerais</label>
+                <textarea class="form-control" id="observacao" name="observacao" rows="3" 
+                          placeholder="Observações adicionais sobre o prontuário..."></textarea>
+            </div>
+        </div>
+
+        <!-- Ações do Formulário -->
+        <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+            <a href="{{ url_for('prontuarios') }}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary" id="btnSalvarProntuario">
+                <i class="fas fa-save"></i> Salvar Prontuário
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Modal para Trocar Responsável -->
+<div class="modal fade" id="modalTrocarResponsavel" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Trocar Responsável</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Deseja trocar o responsável atual? Os erros não salvos serão perdidos.</p>
+                <div class="alert alert-warning">
+                    <small><i class="fas fa-exclamation-triangle"></i> Erros já adicionados serão mantidos com o responsável anterior.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmarTroca">Confirmar Troca</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Expõe os dados de erros para o JS -->
+<script>
+    window.tipos_erro_dict = {{ tipos_erro | tojson }};
+</script>
+
+<!-- JS Específico da Página -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('formAlimentacao');
+    const selectResponsavel = document.getElementById('selectResponsavel');
+    const btnAdicionarResponsavel = document.getElementById('btnAdicionarResponsavel');
+    const listaResponsaveis = document.getElementById('lista-responsaveis');
+    const nenhumResponsavelMensagem = document.getElementById('nenhum-responsavel-mensagem');
+    const formularioErros = document.getElementById('formulario-erros');
+    const responsavelAtualSpan = document.getElementById('responsavel-atual');
+    
+    const selectTipoErro = document.getElementById('selectTipoErro');
+    const selectCausaErro = document.getElementById('selectCausaErro');
+    const quantidadeErro = document.getElementById('quantidadeErro');
+    const btnAdicionarErro = document.getElementById('btnAdicionarErro');
+    const containerDinamico = document.getElementById('erros-container-dinamico');
+    const nenhumErroMensagem = document.getElementById('nenhum-erro-mensagem');
+    const btnSalvarProntuario = document.getElementById('btnSalvarProntuario');
+
+    // Estado da aplicação
+    let estado = {
+        responsaveisAdicionados: [],
+        responsavelAtual: null,
+        errosPorResponsavel: new Map()
+    };
+
+    // 🔥 FUNÇÕES DE NOTIFICAÇÃO MODERNA
+    function showNotification(message, type = 'success', duration = 5000) {
+        // Remove notificações anteriores
+        const existingNotifications = document.querySelectorAll('.modern-notification');
+        existingNotifications.forEach(notification => notification.remove());
+
+        // Cria a notificação
+        const notification = document.createElement('div');
+        notification.className = `modern-notification notification-${type}`;
+        
+        let icon = '';
+        switch(type) {
+            case 'success':
+                icon = `
+                    <svg class="checkmark" viewBox="0 0 24 24">
+                        <path d="M20 6L9 17l-5-5"/>
+                    </svg>
+                `;
+                break;
+            case 'warning':
+                icon = `<i class="fas fa-exclamation-triangle"></i>`;
+                break;
+            case 'danger':
+                icon = `<i class="fas fa-times-circle"></i>`;
+                break;
+            default:
+                icon = `<i class="fas fa-info-circle"></i>`;
+        }
+
+        notification.innerHTML = `
+            <div class="p-4">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3" style="font-size: 1.5rem;">
+                        ${icon}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1 fw-bold">${getNotificationTitle(type)}</h6>
+                        <p class="mb-0 small">${message}</p>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white flex-shrink-0" onclick="this.closest('.modern-notification').remove()"></button>
+                </div>
+                <div class="progress-bar mt-3"></div>
+            </div>
+        `;
+
+        document.body.appendChild(notification);
+
+        // Remove automaticamente após o tempo
+        if (duration > 0) {
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.style.opacity = '0';
+                    notification.style.transform = 'translateY(-20px)';
+                    setTimeout(() => notification.remove(), 300);
+                }
+            }, duration);
+        }
+
+        return notification;
+    }
+
+    function getNotificationTitle(type) {
+        const titles = {
+            'success': 'Sucesso!',
+            'warning': 'Atenção!',
+            'danger': 'Erro!',
+            'info': 'Informação'
+        };
+        return titles[type] || 'Notificação';
+    }
+
+    // 🔥 FUNÇÃO DE LOADING MODERNO
+    function showLoading(message = 'Processando...') {
+        const loading = document.createElement('div');
+        loading.className = 'modern-notification notification-info';
+        loading.innerHTML = `
+            <div class="p-4">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 me-3">
+                        <div class="modern-spinner"></div>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1 fw-bold">Processando</h6>
+                        <p class="mb-0 small">${message}</p>
+                    </div>
+                </div>
+                <div class="progress-bar mt-3"></div>
+            </div>
+        `;
+
+        document.body.appendChild(loading);
+        return loading;
+    }
+
+    // 🔥 CONFETI ANIMADO
+    function showConfetti() {
+        const confettiCount = 30;
+        const colors = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'];
+        
+        for (let i = 0; i < confettiCount; i++) {
+            const confetti = document.createElement('div');
+            confetti.style.cssText = `
+                position: fixed;
+                width: 8px;
+                height: 8px;
+                background: ${colors[Math.floor(Math.random() * colors.length)]};
+                top: -10px;
+                left: ${Math.random() * 100}vw;
+                opacity: ${Math.random() + 0.5};
+                border-radius: 2px;
+                animation: confettiFall ${Math.random() * 3 + 2}s linear forwards;
+                z-index: 9998;
+            `;
+            
+            document.body.appendChild(confetti);
+            
+            // Remove após animação
+            setTimeout(() => confetti.remove(), 5000);
+        }
+    }
+
+    // 🔥 FUNÇÕES PARA GERENCIAR RESPONSÁVEIS
+    function adicionarResponsavel() {
+        const responsavelId = selectResponsavel.value; // Isto agora será o ID (ex: "1")
+        const nomeResponsavel = selectResponsavel.options[selectResponsavel.selectedIndex].text; // Isto será o Nome (ex: "KATIA ALVES")
+        
+        if (!responsavelId) {
+            showNotification('Selecione um responsável primeiro.', 'warning');
+            return;
+        }
+        
+        if (estado.responsaveisAdicionados.includes(responsavelId)) { // Compara IDs
+            showNotification('Este responsável já foi adicionado.', 'warning');
+            return;
+        }
+        
+        estado.responsaveisAdicionados.push(responsavelId); // Salva o ID
+        
+        const responsavelCard = document.createElement('div');
+        responsavelCard.className = 'card mb-2';
+        responsavelCard.setAttribute('data-responsavel', responsavelId); // Armazena o ID
+        responsavelCard.innerHTML = `
+            <div class="card-body py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="fw-bold">${nomeResponsavel}</span>
+                        <span class="badge bg-secondary ms-2" id="contador-erros-${responsavelId}">0 erros</span>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-outline-primary btn-adicionar-erros" 
+                                data-responsavel="${responsavelId}" data-nome="${nomeResponsavel}">
+                            <i class="fas fa-plus-circle"></i> Add Erros
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-remover-responsavel">
+                            <i class="fas fa-times"></i> Remover
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        listaResponsaveis.insertBefore(responsavelCard, nenhumResponsavelMensagem);
+        nenhumResponsavelMensagem.style.display = 'none';
+        estado.errosPorResponsavel.set(responsavelId, []); // Usa o ID como chave
+        selectResponsavel.value = '';
+    }
+
+    function removerResponsavel(responsavel) {
+        estado.responsaveisAdicionados = estado.responsaveisAdicionados.filter(r => r !== responsavel);
+        estado.errosPorResponsavel.delete(responsavel);
+        
+        const card = document.querySelector(`[data-responsavel="${responsavel}"]`);
+        if (card) card.remove();
+        
+        if (estado.responsavelAtual === responsavel) {
+            limparResponsavelAtual();
+        }
+        
+        if (estado.responsaveisAdicionados.length === 0) {
+            nenhumResponsavelMensagem.style.display = 'block';
+        }
+    }
+
+    function selecionarResponsavelParaErros(responsavel, nomeResponsavel) {
+        estado.responsavelAtual = responsavel;
+        responsavelAtualSpan.textContent = nomeResponsavel;
+        formularioErros.style.display = 'block';
+        atualizarContadorErrosResponsavel(responsavel);
+        renderizarErrosResponsavel(responsavel);
+    }
+
+    function limparResponsavelAtual() {
+        estado.responsavelAtual = null;
+        responsavelAtualSpan.textContent = '';
+        formularioErros.style.display = 'none';
+        containerDinamico.innerHTML = '';
+        nenhumErroMensagem.style.display = 'block';
+    }
+
+    // 🔥 FUNÇÕES PARA GERENCIAR ERROS
+    function adicionarErro() {
+        if (!estado.responsavelAtual) {
+            showNotification('Selecione um responsável primeiro.', 'warning');
+            return;
+        }
+        
+        const tipoCodigo = selectTipoErro.value;
+        const tipoNome = selectTipoErro.options[selectTipoErro.selectedIndex].getAttribute('data-nome');
+        const causaDesc = selectCausaErro.value;
+        const quantidade = parseInt(quantidadeErro.value) || 1;
+
+        if (!tipoCodigo || !causaDesc) {
+            showNotification('Selecione um tipo e uma causa.', 'warning');
+            return;
+        }
+        
+        if (quantidade < 1) {
+            showNotification('A quantidade deve ser pelo menos 1.', 'warning');
+            return;
+        }
+        
+        const erro = {
+            tipo: tipoCodigo,
+            tipo_nome: tipoNome,
+            causa: causaDesc,
+            quantidade: quantidade,
+            responsavel: estado.responsavelAtual
+        };
+        
+        const errosDoResponsavel = estado.errosPorResponsavel.get(estado.responsavelAtual) || [];
+        errosDoResponsavel.push(erro);
+        estado.errosPorResponsavel.set(estado.responsavelAtual, errosDoResponsavel);
+        
+        renderizarErrosResponsavel(estado.responsavelAtual);
+        atualizarContadorErrosResponsavel(estado.responsavelAtual);
+        
+        selectTipoErro.value = '';
+        selectCausaErro.innerHTML = '<option value="">Selecione o tipo primeiro</option>';
+        selectCausaErro.disabled = true;
+        quantidadeErro.value = '1';
+        btnAdicionarErro.disabled = true;
+    }
+
+    function removerErro(responsavel, index) {
+        const errosDoResponsavel = estado.errosPorResponsavel.get(responsavel) || [];
+        errosDoResponsavel.splice(index, 1);
+        estado.errosPorResponsavel.set(responsavel, errosDoResponsavel);
+        renderizarErrosResponsavel(responsavel);
+        atualizarContadorErrosResponsavel(responsavel);
+    }
+
+    function renderizarErrosResponsavel(responsavel) {
+        const errosDoResponsavel = estado.errosPorResponsavel.get(responsavel) || [];
+        containerDinamico.innerHTML = '';
+        
+        if (errosDoResponsavel.length === 0) {
+            nenhumErroMensagem.style.display = 'block';
+            return;
+        }
+        
+        nenhumErroMensagem.style.display = 'none';
+        
+        errosDoResponsavel.forEach((erro, index) => {
+            const erroDiv = document.createElement('div');
+            erroDiv.className = 'alert alert-light border p-3 d-flex justify-content-between align-items-center mb-2';
+            erroDiv.innerHTML = `
+                <div class="flex-grow-1">
+                    <span class="fw-bold text-primary">${erro.tipo_nome}</span><br>
+                    <small class="text-muted">${erro.causa}</small>
+                    <br>
+                    <small class="text-info fw-bold">
+                        <i class="fas fa-hashtag"></i> Quantidade: ${erro.quantidade}
+                    </small>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger btn-remover-erro" data-index="${index}">
+                    <i class="fas fa-trash-alt"></i> Remover
+                </button>
+            `;
+            containerDinamico.appendChild(erroDiv);
+        });
+    }
+
+    function atualizarContadorErrosResponsavel(responsavel) {
+        const errosDoResponsavel = estado.errosPorResponsavel.get(responsavel) || [];
+        const contadorEl = document.getElementById(`contador-erros-${responsavel}`);
+        if (contadorEl) {
+            contadorEl.textContent = `${errosDoResponsavel.length} erros`;
+            contadorEl.className = `badge ${errosDoResponsavel.length > 0 ? 'bg-primary' : 'bg-secondary'}`;
+        }
+    }
+
+    // 🔥 LÓGICA DE SELEÇÃO DE TIPO/CAUSA
+    selectTipoErro.addEventListener('change', () => {
+        const codigoTipo = selectTipoErro.value;
+        selectCausaErro.innerHTML = '<option value="">Selecione...</option>';
+        selectCausaErro.disabled = true;
+        btnAdicionarErro.disabled = true;
+
+        if (codigoTipo && window.tipos_erro_dict[codigoTipo] && window.tipos_erro_dict[codigoTipo].causas) {
+            const causas = window.tipos_erro_dict[codigoTipo].causas;
+            if (causas.length > 0) {
+                causas.forEach(causa => {
+                    if (causa.status === 'ativo') {
+                        const option = new Option(causa.descricao, causa.descricao); 
+                        selectCausaErro.appendChild(option);
+                    }
+                });
+                selectCausaErro.disabled = false;
+            } else {
+                selectCausaErro.innerHTML = '<option value="">Nenhuma causa ativa</option>';
+            }
+        }
+    });
+    
+    selectCausaErro.addEventListener('change', () => {
+        btnAdicionarErro.disabled = selectCausaErro.value === '';
+    });
+
+    // 🔥 EVENT LISTENERS
+    btnAdicionarResponsavel.addEventListener('click', adicionarResponsavel);
+    btnAdicionarErro.addEventListener('click', adicionarErro);
+
+    listaResponsaveis.addEventListener('click', (e) => {
+        const btnAdicionar = e.target.closest('.btn-adicionar-erros');
+        const btnRemover = e.target.closest('.btn-remover-responsavel');
+        
+        if (btnAdicionar) {
+            const responsavel = btnAdicionar.getAttribute('data-responsavel');
+            const nome = btnAdicionar.getAttribute('data-nome');
+            selecionarResponsavelParaErros(responsavel, nome);
+        }
+        
+        if (btnRemover) {
+            const card = btnRemover.closest('.card');
+            const responsavel = card.getAttribute('data-responsavel');
+            removerResponsavel(responsavel);
+        }
+    });
+
+    containerDinamico.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-remover-erro');
+        if (btn && estado.responsavelAtual) {
+            const index = parseInt(btn.getAttribute('data-index'));
+            removerErro(estado.responsavelAtual, index);
+        }
+    });
+
+   // 🔥 SUBMISSÃO DO FORMULÁRIO - VERSÃO COMPATÍVEL
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    // Validação
+    if (estado.responsaveisAdicionados.length === 0) {
+        showNotification('Adicione pelo menos um responsável.', 'warning');
+        return;
+    }
+
+    // Mostrar loading
+    const loading = showLoading('Salvando prontuário...');
+    btnSalvarProntuario.disabled = true;
+    btnSalvarProntuario.classList.add('btn-loading');
+    btnSalvarProntuario.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Salvando...';
+
+    try {
+        // Prepara os dados
+        const formData = new FormData(form);
+        const dados = Object.fromEntries(formData.entries());
+        
+        // 🔥 CORREÇÃO: Garantir IDs numéricos
+        dados.responsaveis = estado.responsaveisAdicionados.map(id => parseInt(id)).filter(id => !isNaN(id));
+        
+        // 🔥 CORREÇÃO: Estrutura de erros compatível com o backend
+        dados.erros = [];
+        estado.errosPorResponsavel.forEach((erros, responsavelId) => {
+            erros.forEach(erro => {
+                dados.erros.push({
+                    tipo: erro.tipo,
+                    causa: erro.causa,
+                    quantidade: parseInt(erro.quantidade) || 1,
+                    responsavel_id: parseInt(responsavelId)  // Nome do campo corrigido
+                });
+            });
+        });
+
+        // Converter campos numéricos
+        dados.diarias = parseInt(dados.diarias) || 0;
+
+        console.log('📤 DADOS ENVIANDO PARA BACKEND:');
+        console.log('Responsáveis:', dados.responsaveis);
+        console.log('Erros:', dados.erros);
+
+        const response = await fetch('/api/adicionar_prontuario', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(dados)
+        });
+
+        const resultado = await response.json();
+        console.log('📥 RESPOSTA DO BACKEND:', resultado);
+
+        if (!response.ok) {
+            throw new Error(resultado.erro || `Erro HTTP: ${response.status}`);
+        }
+
+        if (resultado.sucesso) {
+            showNotification(resultado.mensagem || 'Prontuário salvo com sucesso!', 'success', 3000);
+            showConfetti();
+            
+            setTimeout(() => {
+                window.location.href = '/prontuarios';
+            }, 2000);
+        } else {
+            throw new Error(resultado.erro || 'Erro ao salvar prontuário');
+        }
+
+    } catch (error) {
+        console.error('❌ ERRO:', error);
+        showNotification('Erro: ' + error.message, 'danger', 5000);
+    } finally {
+        loading.remove();
+        btnSalvarProntuario.disabled = false;
+        btnSalvarProntuario.classList.remove('btn-loading');
+        btnSalvarProntuario.innerHTML = '<i class="fas fa-save"></i> Salvar Prontuário';
+    }
+});
+});
+</script>
+
+
+{% endblock %}

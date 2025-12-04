@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block header_title %}Configurações do Sistema{% endblock %}
+
+{% block content %}
+<div class="content-section">
+    <div class="section-header">
+        <h2>Configurações do Sistema</h2>
+        <p class="text-muted">Gerencie os dados de referência utilizados no sistema</p>
+    </div>
+   
+    <ul class="nav nav-tabs" id="configTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="convenios-tab" data-bs-toggle="tab" data-bs-target="#convenios" type="button" role="tab">
+                <i class="fas fa-handshake"></i> Convênios ({{ convenios|length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="setores-tab" data-bs-toggle="tab" data-bs-target="#setores" type="button" role="tab">
+                <i class="fas fa-building"></i> Setores ({{ setores|length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="responsaveis-tab" data-bs-toggle="tab" data-bs-target="#responsaveis" type="button" role="tab">
+                <i class="fas fa-users"></i> Responsáveis ({{ responsaveis|length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="motivos-causas-tab" data-bs-toggle="tab" data-bs-target="#motivos_causas" type="button" role="tab">
+                <i class="fas fa-tags"></i> Motivos & Causas
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content p-4 border border-top-0" id="configTabsContent">
+        <div class="tab-pane fade show active" id="convenios" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>Gerenciar Convênios</h4>
+                <button class="btn btn-primary" onclick="abrirModalConvenio()">
+                    <i class="fas fa-plus"></i> Novo Convênio
+                </button>
+            </div>
+
+            {% if convenios %}
+            <div class="table-container">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nome do Convênio</th>
+                            <th>Status</th>
+                            <th>Data Criação</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for convenio in convenios %}
+                        <tr>
+                            <td>{{ convenio.id }}</td>
+                            <td>{{ convenio.nome }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if convenio.status == 'ativo' else 'secondary' }}">
+                                    {{ convenio.status }}
+                                </span>
+                            </td>
+                            <td>{{ convenio.data_criacao[:10] if convenio.data_criacao else '-' }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary"
+                                        onclick="abrirModalConvenio({{ convenio.id }}, '{{ convenio.nome }}', '{{ convenio.status }}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="excluirConvenio({{ convenio.id }})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                Nenhum convênio cadastrado.
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="tab-pane fade" id="setores" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>Gerenciar Setores</h4>
+                <button class="btn btn-primary" onclick="abrirModalSetor()">
+                    <i class="fas fa-plus"></i> Novo Setor
+                </button>
+            </div>
+
+            {% if setores %}
+            <div class="table-container">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nome do Setor</th>
+                            <th>Descrição</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for setor in setores %}
+                        <tr>
+                            <td>{{ setor.id }}</td>
+                            <td>{{ setor.nome }}</td>
+                            <td>{{ setor.descricao or '-' }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if setor.status == 'ativo' else 'secondary' }}">
+                                    {{ setor.status }}
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary"
+                                        onclick="abrirModalSetor({{ setor.id }}, '{{ setor.nome }}', '{{ setor.descricao or '' }}', '{{ setor.status }}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="excluirSetor({{ setor.id }})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                Nenhum setor cadastrado.
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="tab-pane fade" id="responsaveis" role="tabpanel">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4>Gerenciar Responsáveis</h4>
+                <button class="btn btn-primary" onclick="abrirModalResponsavel()">
+                    <i class="fas fa-plus"></i> Novo Responsável
+                </button>
+            </div>
+
+            {% if responsaveis %}
+            <div class="table-container">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nome</th>
+                            <th>Função</th>
+                            <th>Setor</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for responsavel in responsaveis %}
+                        <tr>
+                            <td>{{ responsavel.id }}</td>
+                            <td>{{ responsavel.nome }}</td>
+                            <td>{{ responsavel.funcao }}</td>
+                            <td>{{ responsavel.setor or '-' }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if responsavel.status == 'ativo' else 'secondary' }}">
+                                    {{ responsavel.status }}
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary"
+                                        onclick="abrirModalResponsavel({{ responsavel.id }}, '{{ responsavel.nome }}', '{{ responsavel.funcao }}', '{{ responsavel.setor or '' }}', '{{ responsavel.status }}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="excluirResponsavel({{ responsavel.id }})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                Nenhum responsável cadastrado.
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="tab-pane fade" id="motivos_causas" role="tabpanel">
+            <div class="row g-4">
+                <div class="col-lg-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0">Motivos (Tipos de Erro)</h4>
+                        <button class="btn btn-primary btn-sm" onclick="abrirModalTipoErro()">
+                            <i class="fas fa-plus"></i> Novo Motivo
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="table table-sm table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Nome</th>
+                                    <th>Status</th>
+                                    <th class="text-end">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaMotivos">
+                                {% for codigo, info in tipos_erro.items() %}
+                                <tr data-codigo="{{ codigo }}" onclick="selecionarMotivo('{{ codigo }}')" style="cursor:pointer;">
+                                    <td><code>{{ codigo }}</code></td>
+                                    <td>
+                                        <span class="badge" style="background: {{ info.cor|default('#6c757d') }};">&nbsp;</span>
+                                        {{ info.nome }}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if info.status|default('ativo') == 'ativo' else 'secondary' }}">
+                                            {{ info.status|default('ativo') }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <button class="btn btn-sm btn-outline-primary"
+                                                onclick="event.stopPropagation(); abrirModalTipoErro('{{ codigo }}', '{{ info.nome }}', '{{ info.cor|default('#6c757d') }}', '{{ info.status|default('ativo') }}', '{{ info.descricao|default('') }}')">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger"
+                                                onclick="event.stopPropagation(); excluirTipoErro('{{ codigo }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% if not tipos_erro %}
+                                <tr><td colspan="4" class="text-muted">Nenhum motivo cadastrado.</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="col-lg-8">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <h4 class="mb-0">Causas: </h4>
+                            <span id="motivoSelecionadoLabel" class="text-primary">Todas</span>
+                        </div>
+                        <div>
+                            <button class="btn btn-outline-secondary btn-sm me-2" onclick="carregarTodasCausas()">
+                                <i class="fas fa-list"></i> Ver Todas
+                            </button>
+                            <button class="btn btn-primary btn-sm" onclick="abrirModalCausaComMotivo()" id="btnNovaCausa">
+                                <i class="fas fa-plus"></i> Nova Causa
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info" id="alertSelecioneMotivo">
+                        <i class="fas fa-info-circle"></i> Selecione um motivo à esquerda para visualizar e gerenciar suas causas.
+                    </div>
+
+                    <div class="table-container d-none" id="containerCausas">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Descrição da Causa</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaCausasMotivo">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include 'modais_configuracoes.html' %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.tipos_erro_dict = {{ tipos_erro | tojson }};
+    window.tipos_erro_lista = {{ tipos_erro_lista | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
+{% endblock %}

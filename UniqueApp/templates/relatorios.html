@@ -1,0 +1,603 @@
+{% extends "base.html" %}
+
+{% block header_title %}Relatórios Gerenciais{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-dark mb-0">Relatórios e Estatísticas</h2>
+            <p class="text-muted small mb-0">
+                <i class="fas fa-calendar-alt me-1"></i> 
+                Período: <span class="fw-bold text-primary">{{ periodo_info if periodo_info else 'Geral' }}</span>
+                &nbsp;|&nbsp; 
+                Total: <span class="badge bg-dark">{{ stats.total_por_status.values()|sum }} registros</span>
+            </p>
+        </div>
+        <button class="btn btn-success shadow-sm" onclick="exportarRelatorios()">
+            <i class="fas fa-file-excel me-2"></i> Exportar Excel
+        </button>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3 border-bottom-0">
+            <h6 class="mb-0 fw-bold text-primary"><i class="fas fa-filter me-2"></i>Filtros Avançados</h6>
+        </div>
+        <div class="card-body bg-light rounded-bottom">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label small text-muted fw-bold text-uppercase">Período Rápido</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0 text-muted"><i class="fas fa-clock"></i></span>
+                        <select id="filter-periodo" class="form-select border-start-0" onchange="aplicarFiltrosData()">
+                            <option value="">Personalizado / Todos</option>
+                            <option value="hoje" {% if periodo_filter == 'hoje' %}selected{% endif %}>Hoje</option>
+                            <option value="ontem" {% if periodo_filter == 'ontem' %}selected{% endif %}>Ontem</option>
+                            <option value="semana" {% if periodo_filter == 'semana' %}selected{% endif %}>Última Semana</option>
+                            <option value="mes" {% if periodo_filter == 'mes' %}selected{% endif %}>Este Mês</option>
+                            <option value="trimestre" {% if periodo_filter == 'trimestre' %}selected{% endif %}>Este Trimestre</option>
+                            <option value="ano" {% if periodo_filter == 'ano' %}selected{% endif %}>Este Ano</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label small text-muted fw-bold text-uppercase">Ano</label>
+                    <select id="filter-ano" class="form-select" onchange="aplicarFiltrosData()">
+                        <option value="">Todos</option>
+                        {% for ano in anos_disponiveis %}
+                        <option value="{{ ano }}" {% if ano_filter == ano|string %}selected{% endif %}>{{ ano }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted fw-bold text-uppercase">Mês</label>
+                    <select id="filter-mes" class="form-select" onchange="aplicarFiltrosData()">
+                        <option value="">Todos</option>
+                        {% for mes_num, mes_nome in meses_disponiveis %}
+                        <option value="{{ mes_num }}" {% if mes_filter == mes_num %}selected{% endif %}>{{ mes_nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label small text-muted fw-bold text-uppercase">Intervalo Específico</label>
+                    <div class="input-group">
+                        <input type="date" id="filter-data-inicio" class="form-control" value="{{ data_inicio_filter }}" onchange="aplicarFiltrosData()">
+                        <span class="input-group-text bg-white border-start-0 border-end-0 text-muted">até</span>
+                        <input type="date" id="filter-data-fim" class="form-control" value="{{ data_fim_filter }}" onchange="aplicarFiltrosData()">
+                    </div>
+                </div>
+
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-outline-danger w-100" onclick="limparFiltrosData()">
+                        <i class="fas fa-times me-2"></i> Limpar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card border-start border-4 border-primary shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3 text-primary">
+                            <i class="fas fa-folder-open fa-2x"></i>
+                        </div>
+                        <div>
+                            <div class="fs-4 fw-bold text-dark">{{ stats.total_por_status.values()|sum }}</div>
+                            <div class="small text-muted text-uppercase fw-bold">Total Auditado</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-4 border-danger shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3 text-danger">
+                            <i class="fas fa-exclamation-circle fa-2x"></i>
+                        </div>
+                        <div>
+                            <div class="fs-4 fw-bold text-dark">{{ stats.erros_por_tipo.values()|sum }}</div>
+                            <div class="small text-muted text-uppercase fw-bold">Total de Erros</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-4 border-success shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3 text-success">
+                            <i class="fas fa-check-double fa-2x"></i>
+                        </div>
+                        <div>
+                            {% set total = stats.total_por_status.values()|sum %}
+                            {% set entregues = stats.total_por_status['Entregue ao Faturamento'] or 0 %}
+                            <div class="fs-4 fw-bold text-dark">
+                                {{ "%.1f"|format((entregues / total * 100) if total > 0 else 0) }}%
+                            </div>
+                            <div class="small text-muted text-uppercase fw-bold">Taxa de Conclusão</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-4 border-warning shadow-sm h-100">
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 me-3 text-warning">
+                            <i class="fas fa-hourglass-half fa-2x"></i>
+                        </div>
+                        <div>
+                            {% set pendentes = stats.total_por_status.get('Aguardando Correção', 0) + stats.total_por_status.get('Aguardando Revisão', 0) %}
+                            <div class="fs-4 fw-bold text-dark">{{ pendentes }}</div>
+                            <div class="small text-muted text-uppercase fw-bold">Pendentes</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white fw-bold text-secondary">Status dos Prontuários</div>
+                <div class="card-body">
+                    <div class="chart-container" style="position: relative; height: 250px;">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white fw-bold text-secondary">Erros por Tipo</div>
+                <div class="card-body">
+                    <div class="chart-container" style="position: relative; height: 250px;">
+                        <canvas id="errosChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-12 col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white fw-bold text-secondary">Top Setores (Erros)</div>
+                <div class="card-body">
+                    <div class="chart-container" style="position: relative; height: 250px;">
+                        <canvas id="setoresChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-12"><h5 class="text-muted border-bottom pb-2">Análise de Produção & Eficiência</h5></div>
+        
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white d-flex justify-content-between">
+                    <span class="fw-bold text-success"><i class="fas fa-bed me-2"></i>Volume de Diárias por Convênio</span>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="diariasChart"></canvas>
+                    </div>
+                    <small class="text-muted d-block text-center mt-2">Soma total de diárias registradas nos prontuários do período.</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white d-flex justify-content-between">
+                    <span class="fw-bold text-info"><i class="fas fa-stopwatch me-2"></i>Tempo de Ciclo (Dias)</span>
+                </div>
+                <div class="card-body d-flex flex-column justify-content-center">
+                    <div class="row text-center">
+                        <div class="col-6 border-end">
+                            <div class="display-4 fw-bold text-dark" id="lblTempoMedio">0</div>
+                            <span class="text-muted small text-uppercase fw-bold">Média Dias (Receb. -> Envio)</span>
+                        </div>
+                        <div class="col-6">
+                            <div class="display-4 fw-bold text-dark" id="lblProntuariosComDatas">0</div>
+                            <span class="text-muted small text-uppercase fw-bold">Prontuários Calculados</span>
+                        </div>
+                    </div>
+                    <div class="mt-4 px-3">
+                        <div class="progress" style="height: 25px;">
+                            <div id="barTempo" class="progress-bar bg-info progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%">Calculando...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white fw-bold">Detalhamento por Responsável</div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 400px;">
+                        <table class="table table-hover table-striped mb-0 align-middle">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Responsável</th>
+                                    <th class="text-center">Prontuários</th>
+                                    <th class="text-center">Taxa</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in stats_responsavel %}
+                                <tr>
+                                    <td>
+                                        {% if r.nome and r.nome != 'None' and r.nome != 'null' %}
+                                            {{ r.nome }}
+                                        {% else %}
+                                            <span class="text-muted">Não informado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center fw-bold">{{ r.prontuarios_com_erro if r.prontuarios_com_erro else 0 }}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark border">
+                                            {% if r.taxa is defined %}
+                                                {{ "%.1f"|format(r.taxa) }}%
+                                            {% else %}
+                                                0%
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-3">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Nenhum dado de responsável disponível
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white fw-bold">Detalhamento por Convênio</div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 400px;">
+                        <table class="table table-hover table-striped mb-0 align-middle">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Convênio</th>
+                                    <th class="text-center">Prontuários</th>
+                                    <th class="text-center">Taxa</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for c in stats_convenio %}
+                                <tr>
+                                    <td>
+                                        {% if c.nome and c.nome != 'None' and c.nome != 'null' %}
+                                            {{ c.nome }}
+                                        {% else %}
+                                            <span class="text-muted">Não informado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center fw-bold">{{ c.prontuarios_com_erro if c.prontuarios_com_erro else 0 }}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-light text-dark border">
+                                            {% if c.taxa is defined %}
+                                                {{ "%.1f"|format(c.taxa) }}%
+                                            {% else %}
+                                                0%
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-3">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Nenhum dado de convênio disponível
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// =========================================================
+// 1. CONFIGURAÇÃO DE DADOS E HELPERS
+// =========================================================
+
+// Recebe a lista completa de prontuários do Backend
+const dadosProntuarios = {{ prontuarios | tojson | default('[]') }};
+
+// Cores padrão para gráficos
+const CORES = {
+    status: ['#ffc107', '#0dcaf0', '#dc3545', '#fd7e14', '#198754', '#6c757d'], // Amarelo, Azul, Vermelho, Laranja, Verde, Cinza
+    setores: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796'],
+    erros: '#e74a3b',
+    diarias: '#198754'
+};
+
+console.log("📊 Dados carregados para gráficos:", dadosProntuarios.length, "registros.");
+
+// =========================================================
+// 2. PROCESSAMENTO DE DADOS (Cálculos no Frontend)
+// =========================================================
+
+function processarDadosGerais() {
+    // Objetos para acumular contagens
+    const contagem = {
+        status: {},
+        setores: {}, // Apenas setores com erros ou geral? Vamos fazer geral para volume
+        setoresComErro: {},
+        erros: {},
+        diariasPorConvenio: {},
+        tempoCiclo: { totalDias: 0, qtd: 0 }
+    };
+
+    dadosProntuarios.forEach(p => {
+        // 1. Contagem de Status (Normaliza texto)
+        const status = p.status || 'Não Informado';
+        contagem.status[status] = (contagem.status[status] || 0) + 1;
+
+        // 2. Contagem de Setores (Onde ocorrem os erros)
+        const setor = p.setor || 'Não Informado';
+        if (p.erros && p.erros.length > 0) {
+            contagem.setoresComErro[setor] = (contagem.setoresComErro[setor] || 0) + 1;
+            
+            // 3. Contagem de Tipos de Erro
+            p.erros.forEach(erro => {
+                const tipo = erro.tipo || 'Não Especificado';
+                contagem.erros[tipo] = (contagem.erros[tipo] || 0) + 1;
+            });
+        }
+
+        // 4. Diárias por Convênio
+        const convenio = p.convenio || 'Outros';
+        const diarias = parseInt(p.diarias) || 0;
+        if (diarias > 0) {
+            contagem.diariasPorConvenio[convenio] = (contagem.diariasPorConvenio[convenio] || 0) + diarias;
+        }
+
+        // 5. Tempo de Ciclo (Recebimento -> Faturamento)
+        if (p.recebimento_prontuario && p.enviado_faturamento) {
+            const d1 = parseDataSegura(p.recebimento_prontuario);
+            const d2 = parseDataSegura(p.enviado_faturamento);
+            
+            if (d1 && d2 && d2 >= d1) {
+                const diffTime = Math.abs(d2 - d1);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                contagem.tempoCiclo.totalDias += diffDays;
+                contagem.tempoCiclo.qtd++;
+            }
+        }
+    });
+
+    return contagem;
+}
+
+// Helper para converter datas de vários formatos (ISO ou BR)
+function parseDataSegura(str) {
+    if (!str) return null;
+    // Tenta criar data direto
+    let d = new Date(str);
+    if (!isNaN(d)) return d;
+    
+    // Tenta formato BR (DD/MM/YYYY)
+    if (str.includes('/')) {
+        const [dia, mes, ano] = str.split('/');
+        d = new Date(`${ano}-${mes}-${dia}`);
+        if (!isNaN(d)) return d;
+    }
+    return null;
+}
+
+// =========================================================
+// 3. RENDERIZAÇÃO DOS GRÁFICOS
+// =========================================================
+
+function renderizarGraficos() {
+    if (!dadosProntuarios || dadosProntuarios.length === 0) {
+        console.warn("⚠️ Sem dados para renderizar gráficos.");
+        document.querySelectorAll('.chart-container').forEach(el => {
+            el.innerHTML = '<div class="d-flex align-items-center justify-content-center h-100 text-muted">Sem dados para exibir</div>';
+        });
+        return;
+    }
+
+    const stats = processarDadosGerais();
+
+    // --- GRÁFICO 1: STATUS (Doughnut) ---
+    criarGrafico('statusChart', 'doughnut', {
+        labels: Object.keys(stats.status),
+        datasets: [{
+            data: Object.values(stats.status),
+            backgroundColor: CORES.status,
+            borderWidth: 1
+        }]
+    }, { legend: { position: 'right', labels: { boxWidth: 12 } } });
+
+    // --- GRÁFICO 2: ERROS POR TIPO (Barra Horizontal) ---
+    // Ordenar e pegar Top 10 erros
+    const errosSorted = Object.entries(stats.erros)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+    
+    criarGrafico('errosChart', 'bar', {
+        labels: errosSorted.map(x => x[0]),
+        datasets: [{
+            label: 'Ocorrências',
+            data: errosSorted.map(x => x[1]),
+            backgroundColor: CORES.erros,
+            borderRadius: 4
+        }]
+    }, { 
+        indexAxis: 'y',
+        plugins: { legend: { display: false } } 
+    });
+
+    // --- GRÁFICO 3: TOP SETORES COM ERRO (Pie) ---
+    const setoresSorted = Object.entries(stats.setoresComErro)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5); // Top 5
+
+    if (setoresSorted.length > 0) {
+        criarGrafico('setoresChart', 'pie', {
+            labels: setoresSorted.map(x => x[0]),
+            datasets: [{
+                data: setoresSorted.map(x => x[1]),
+                backgroundColor: CORES.setores
+            }]
+        }, { legend: { position: 'right', labels: { boxWidth: 12 } } });
+    } else {
+         // Se não houver erros, limpa o gráfico de setores
+         const ctx = document.getElementById('setoresChart');
+         if(ctx) ctx.parentElement.innerHTML = '<div class="text-center py-5 text-muted">Sem registros de erros por setor</div>';
+    }
+
+    // --- GRÁFICO 4: DIÁRIAS (Bar) ---
+    const diariasSorted = Object.entries(stats.diariasPorConvenio)
+        .sort((a, b) => b[1] - a[1]);
+
+    if (diariasSorted.length > 0) {
+        criarGrafico('diariasChart', 'bar', {
+            labels: diariasSorted.map(x => x[0]),
+            datasets: [{
+                label: 'Diárias',
+                data: diariasSorted.map(x => x[1]),
+                backgroundColor: CORES.diarias,
+                borderRadius: 4
+            }]
+        }, { 
+            indexAxis: 'y',
+            plugins: { legend: { display: false } } 
+        });
+    } else {
+        const ctx = document.getElementById('diariasChart');
+         if(ctx) ctx.parentElement.innerHTML = '<div class="text-center py-5 text-muted">Nenhuma diária registrada</div>';
+    }
+
+    // --- KPI: TEMPO DE CICLO ---
+    atualizarKPITempo(stats.tempoCiclo);
+}
+
+// Função Genérica para criar gráficos com segurança
+function criarGrafico(canvasId, type, data, optionsExtra = {}) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    // Verifica se há dados para plotar
+    if (data.labels.length === 0) {
+        canvas.parentElement.innerHTML = '<div class="d-flex align-items-center justify-content-center h-100 text-muted small">Sem dados</div>';
+        return;
+    }
+
+    new Chart(canvas, {
+        type: type,
+        data: data,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            ...optionsExtra
+        }
+    });
+}
+
+function atualizarKPITempo(ciclo) {
+    const elMedia = document.getElementById('lblTempoMedio');
+    const elQtd = document.getElementById('lblProntuariosComDatas');
+    const elBar = document.getElementById('barTempo');
+
+    if (elMedia && elQtd && ciclo.qtd > 0) {
+        const media = (ciclo.totalDias / ciclo.qtd).toFixed(1);
+        elMedia.innerText = media;
+        elQtd.innerText = ciclo.qtd;
+        
+        if (elBar) {
+            elBar.style.width = '100%';
+            elBar.innerText = 'Calculado';
+            elBar.classList.remove('progress-bar-animated', 'progress-bar-striped');
+            elBar.classList.add('bg-info');
+        }
+    } else if (elBar) {
+        elBar.innerText = "Dados insuficientes";
+        elBar.classList.add('bg-secondary');
+    }
+}
+
+// =========================================================
+// 4. EVENTOS E FILTROS
+// =========================================================
+
+function aplicarFiltrosData() {
+    const params = new URLSearchParams();
+    const getVal = (id) => document.getElementById(id).value;
+    
+    ['ano', 'mes', 'periodo', 'data_inicio', 'data_fim'].forEach(key => {
+        const id = `filter-${key.replace('_', '-')}`;
+        const val = getVal(id);
+        if (val) params.append(key, val);
+    });
+    
+    window.location.href = `/relatorios?${params.toString()}`;
+}
+
+function limparFiltrosData() {
+    window.location.href = '/relatorios';
+}
+
+function exportarRelatorios() {
+    if (!dadosProntuarios.length) return alert("Sem dados para exportar.");
+    
+    const headers = ["ID", "Beneficiario", "Convenio", "Status", "Setor", "Admissao", "Erros"];
+    const rows = dadosProntuarios.map(p => {
+        const errosStr = (p.erros || []).map(e => e.tipo).join("; ");
+        return [
+            p.id,
+            `"${p.beneficiario}"`,
+            `"${p.convenio}"`,
+            `"${p.status}"`,
+            `"${p.setor}"`,
+            p.admissao || "",
+            `"${errosStr}"`
+        ].join(",");
+    });
+    
+    const csv = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(","), ...rows].join("\n");
+    const link = document.createElement("a");
+    link.href = encodeURI(csv);
+    link.download = "relatorio_auditoria.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Inicialização
+document.addEventListener('DOMContentLoaded', renderizarGraficos);
+
+</script>
+{% endblock %}
