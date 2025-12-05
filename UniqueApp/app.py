@@ -6,20 +6,21 @@ from datetime import datetime, date, timedelta
 from collections import Counter, defaultdict
 import traceback
 from sqlalchemy import extract, func
-from calendar import monthrange, month_name
+from calendar import monthrange
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy.orm import joinedload # Importação explícita
 
 # --- 1. CONFIGURAÇÃO INICIAL E BANCO DE DADOS ---
 app = Flask(__name__)
 
 # --- CONFIGURAÇÃO DE SEGURANÇA ---
-app.config['SECRET_KEY'] = 'coloque-uma-chave-secreta-bem-dificil-aqui'  # Necessário para sessões
+app.config['SECRET_KEY'] = 'coloque-uma-chave-secreta-bem-dificil-aqui' # Necessário para sessões
 
 # --- INICIALIZAÇÃO DO LOGIN ---
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'  # Nome da função da rota de login
+login_manager.login_view = 'login' # Nome da função da rota de login
 login_manager.login_message = "Por favor, faça login para acessar esta página."
 login_manager.login_message_category = "warning"
 
@@ -46,13 +47,12 @@ STATUS_OPCOES = [
 
 # --- 2. DEFINIÇÃO DOS MODELOS (TABELAS) ---
 
-# Tabelas de associação PRIMEIRO
+# Tabelas de associação
 prontuario_responsavel_association = db.Table('prontuario_responsavel_association',
     db.Column('prontuario_id', db.Integer, db.ForeignKey('prontuario.id'), primary_key=True),
     db.Column('responsavel_id', db.Integer, db.ForeignKey('responsavel.id'), primary_key=True)
 )
 
-# Tabela de relacionamento entre responsáveis e categorias de erro
 responsavel_categoria_association = db.Table('responsavel_categoria_association',
     db.Column('responsavel_id', db.Integer, db.ForeignKey('responsavel.id'), primary_key=True),
     db.Column('categoria_erro_id', db.Integer, db.ForeignKey('categoria_erro.id'), primary_key=True),
@@ -60,7 +60,7 @@ responsavel_categoria_association = db.Table('responsavel_categoria_association'
     db.Column('data_fim', db.DateTime, nullable=True)
 )
 
-# Modelos base PRIMEIRO
+# Modelos base
 
 # --- MODELO DE USUÁRIO ---
 class User(UserMixin, db.Model):
@@ -77,8 +77,6 @@ class User(UserMixin, db.Model):
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
-
-
 
 class Convenio(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -154,21 +152,19 @@ class Causa(db.Model):
             'data_atualizacao': self.data_atualizacao.isoformat()
         }
 
-# NOVO: CategoriaErro antes de Responsavel
 class CategoriaErro(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    codigo = db.Column(db.String(20), unique=True, nullable=False)  # ex: 'FAT001'
-    nome = db.Column(db.String(100), nullable=False)  # ex: 'ERRO FATURAMENTO'
+    codigo = db.Column(db.String(20), unique=True, nullable=False)
+    nome = db.Column(db.String(100), nullable=False)
     descricao = db.Column(db.String(200))
     cor = db.Column(db.String(7), default='#3498db')
     status = db.Column(db.String(20), default='ativo')
     data_criacao = db.Column(db.DateTime, default=datetime.now)
     data_atualizacao = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     
-    # Relacionamento com responsáveis
     responsaveis = db.relationship('Responsavel', 
-                                 secondary=responsavel_categoria_association,
-                                 back_populates='categorias_erro')
+                                   secondary=responsavel_categoria_association,
+                                   back_populates='categorias_erro')
     
     def to_dict(self):
         return {
@@ -180,7 +176,6 @@ class CategoriaErro(db.Model):
             'status': self.status
         }
 
-# Responsavel DEPOIS de CategoriaErro
 class Responsavel(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), unique=True, nullable=False)
@@ -192,10 +187,9 @@ class Responsavel(db.Model):
 
     prontuarios = db.relationship('Prontuario', secondary=prontuario_responsavel_association, back_populates='responsaveis')
     
-    # NOVO: Relacionamento com categorias de erro
     categorias_erro = db.relationship('CategoriaErro', 
-                                    secondary=responsavel_categoria_association,
-                                    back_populates='responsaveis')
+                                     secondary=responsavel_categoria_association,
+                                     back_populates='responsaveis')
 
     def to_dict(self):
         return {
@@ -231,11 +225,10 @@ class Prontuario(db.Model):
     erros = db.relationship('Erro', backref='prontuario', cascade='all, delete-orphan')
     responsaveis = db.relationship('Responsavel', secondary=prontuario_responsavel_association, back_populates='prontuarios')
 
-# ÚNICA definição da classe Erro
 class Erro(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     prontuario_id = db.Column(db.Integer, db.ForeignKey('prontuario.id'), nullable=False)
-    tipo = db.Column(db.String(100), nullable=False)
+    tipo = db.Column(db.String(100), nullable=False) # TipoErro.nome
     causa = db.Column(db.String(300), nullable=False)
     data_criacao = db.Column(db.DateTime, default=datetime.now, index=True)
     
@@ -264,36 +257,51 @@ class Erro(db.Model):
 def _parse_any_date(s):
     if not s:
         return None
+    
     if isinstance(s, (datetime, date)):
         return datetime(s.year, s.month, s.day) if isinstance(s, date) else s
+    
     s = str(s).strip()
     if s.lower() in {"none", "null", ""}:
         return None
     
+    # Tentativa 1: Formato DD/MM/YYYY
     try:
-        d, m, y = s.split('/')
-        if len(d) == 2 and len(m) == 2 and len(y) == 4:
-            return datetime(int(y), int(m), int(d))
+        # Verifica se tem / e se as partes tem o tamanho esperado
+        parts = s.split('/')
+        if len(parts) == 3 and len(parts[0]) <= 2 and len(parts[1]) == 2 and len(parts[2]) == 4:
+             d, m, y = map(int, parts)
+             return datetime(y, m, d)
     except:
         pass
     
-    if s.endswith("Z"):
-        s = s[:-1] + "+00:00"
-    try:
-        return datetime.fromisoformat(s)
-    except Exception:
-        pass
-    
+    # Tratamento de ISO/Zulu Time
+    if 'T' in s or s.endswith("Z"):
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        try:
+            # Tenta parsear com offset de fuso horário
+            return datetime.fromisoformat(s)
+        except ValueError:
+             # Se falhar, tenta sem o fuso horário (removendo o offset/Z)
+             s = s.split('+')[0]
+             s = s.replace('Z', '')
+             try:
+                 # Tenta formato ISO sem timezone
+                 return datetime.fromisoformat(s)
+             except ValueError:
+                 pass
+
+    # Tentativa 3: Formatos comuns sem separador
     for pat in [
-        "%Y-%m-%d", "%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f",
-        "%Y-%m-%dT%H:%M%z", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f%z",
-        "%d-%m-%Y", "%d-%m-%Y %H:%M"
+        "%Y-%m-%d", "%Y-%m-%d %H:%M:%S", 
+        "%d-%m-%Y", "%d/%m/%Y", "%d/%m/%Y %H:%M:%S"
     ]:
         try:
             return datetime.strptime(s, pat)
         except Exception:
             continue
+    
     return None
 
 def _to_br_date(value) -> str:
@@ -302,21 +310,23 @@ def _to_br_date(value) -> str:
 
 def _to_iso_date(value) -> str:
     dt = _parse_any_date(value)
+    # Retorna apenas a data YYYY-MM-DD
     return dt.strftime("%Y-%m-%d") if dt else ""
 
 def get_tipos_erro_dict():
     try:
-        tipos_erro_db = TipoErro.query.options(db.joinedload(TipoErro.causas)).all()
+        # Usa joinedload para carregar as causas de uma vez
+        tipos_erro_db = TipoErro.query.options(joinedload(TipoErro.causas)).all()
     except Exception as e:
         print(f"AVISO: Falha ao carregar Tipos de Erro: {e}")
         return {}
         
     tipos_erro_dict = {}
     for tipo in tipos_erro_db:
-        chave = tipo.nome
+        chave = tipo.nome # Usa o nome/código como chave, ex: '01.01'
         tipos_erro_dict[chave] = {
             'id': tipo.id,
-            'nome': tipo.descricao,
+            'nome': tipo.descricao, # Nome amigável
             'cor': tipo.cor,
             'status': tipo.status,
             'descricao': tipo.descricao,
@@ -325,26 +335,23 @@ def get_tipos_erro_dict():
     return tipos_erro_dict
 
 def prontuario_to_dict(p: Prontuario) -> dict:
-    """Converte um prontuário para dicionário, incluindo todos os erros - VERSÃO CORRIGIDA"""
+    """Converte um prontuário para dicionário, incluindo todos os erros - VERSÃO CORRIGIDA E OTIMIZADA"""
     try:
-        print(f"🔍 DEBUG prontuario_to_dict - ID: {p.id}")
+        # print(f"🔍 DEBUG prontuario_to_dict - ID: {p.id}")
         
         # Carregar responsáveis
         responsaveis_nomes = [r.nome for r in p.responsaveis]
-        print(f"   👥 Responsáveis: {responsaveis_nomes}")
+        # print(f"    👥 Responsáveis: {responsaveis_nomes}")
 
-        # 🔥 CORREÇÃO CRÍTICA: Garantir que os erros estão carregados
+        # Processar Erros - assume que foram carregados via joinedload na query principal
         erros_list = []
-        total_erros = len(p.erros) if p.erros else 0
-        print(f"   📝 Total de erros no objeto: {total_erros}")
-        
         if p.erros:
-            for i, erro in enumerate(p.erros):
+            for erro in p.erros:
                 erro_dict = {
                     'id': erro.id,
                     'tipo': erro.tipo,
                     'causa': erro.causa,
-                    'quantidade': 1,
+                    'quantidade': 1, # Mantém 1 se o erro é um registro por ocorrência
                     'responsavel_id': erro.responsavel_id,
                     'responsavel_nome': erro.responsavel.nome if erro.responsavel else 'Não atribuído',
                     'categoria_erro_id': erro.categoria_erro_id,
@@ -352,9 +359,9 @@ def prontuario_to_dict(p: Prontuario) -> dict:
                     'data_criacao': _to_iso_date(erro.data_criacao)
                 }
                 erros_list.append(erro_dict)
-                print(f"   📝 Erro {i+1}: {erro.tipo} - {erro.causa}")
-        else:
-            print("   ⚠️  NENHUM ERRO CARREGADO para este prontuário")
+                # print(f"    📝 Erro: {erro.tipo} - {erro.causa} (Resp: {erro_dict['responsavel_nome']})")
+        # else:
+            # print("    ⚠️  NENHUM ERRO CARREGADO para este prontuário")
 
         return {
             'id': p.id,
@@ -377,7 +384,7 @@ def prontuario_to_dict(p: Prontuario) -> dict:
             'data_atualizacao': _to_iso_date(p.data_atualizacao),
             'erros': erros_list,
             'total_erros': len(erros_list),
-            'tem_erros': len(erros_list) > 0  # 🔥 Campo adicional para facilitar filtros
+            'tem_erros': len(erros_list) > 0
         }
         
     except Exception as e:
@@ -396,12 +403,14 @@ def prontuario_to_dict(p: Prontuario) -> dict:
             'total_erros': 0,
             'tem_erros': False
         }
+
 # --- NOVAS FUNÇÕES PARA O SISTEMA DE CATEGORIAS ---
 
 def get_categorias_erro_dict():
     """Busca todas as categorias de erro"""
     try:
         categorias = CategoriaErro.query.filter_by(status='ativo').all()
+        # Retorna um dicionário mapeado pelo CODIGO para fácil acesso
         return {cat.codigo: cat.to_dict() for cat in categorias}
     except Exception as e:
         print(f"AVISO: Falha ao carregar Categorias de Erro: {e}")
@@ -410,7 +419,8 @@ def get_categorias_erro_dict():
 def get_categorias_por_responsavel(responsavel_id):
     """Busca categorias de erro permitidas para um responsável"""
     try:
-        responsavel = Responsavel.query.get(responsavel_id)
+        # Usa joinedload para evitar N+1
+        responsavel = Responsavel.query.options(joinedload(Responsavel.categorias_erro)).get(responsavel_id)
         if responsavel:
             return [ce.to_dict() for ce in responsavel.categorias_erro if ce.status == 'ativo']
         return []
@@ -421,7 +431,8 @@ def get_categorias_por_responsavel(responsavel_id):
 def get_responsaveis_por_categoria(categoria_codigo):
     """Busca responsáveis permitidos para uma categoria"""
     try:
-        categoria = CategoriaErro.query.filter_by(codigo=categoria_codigo, status='ativo').first()
+        # Usa joinedload para evitar N+1
+        categoria = CategoriaErro.query.options(joinedload(CategoriaErro.responsaveis)).filter_by(codigo=categoria_codigo, status='ativo').first()
         if categoria:
             return [r.to_dict() for r in categoria.responsaveis if r.status == 'ativo']
         return []
@@ -430,6 +441,8 @@ def get_responsaveis_por_categoria(categoria_codigo):
         return []
 
 # --- 4. FUNÇÕES HELPER DASHBOARD ---
+# (Manutenção das funções auxiliares de dashboard - sem grandes alterações de lógica, apenas ajuste fino)
+
 def _norm_status(p):
     status_raw = str(p.get('status', '')).strip().title().replace('Ao', 'ao')
     status_map = {
@@ -455,18 +468,20 @@ def _pega_data_base(p):
     v = p.get("data_criacao")
     dt = _parse_any_date(v)
     if dt:
+        # Converte para datetime para manter a consistência com os outros objetos
+        if isinstance(dt, date) and not isinstance(dt, datetime):
+            return datetime(dt.year, dt.month, dt.day)
         return dt
-    for key in ("recebimento_prontuario", "admissao"):
-        v = (p.get(key) or "").strip()
-        dt = _parse_any_date(v)
-        if dt:
-            return dt
     return None
 
 def _dif_dias(a, b):
-    if not a or not b:
+    # Certifica que a e b são objetos datetime para subtração
+    a_dt = _parse_any_date(a)
+    b_dt = _parse_any_date(b)
+    
+    if not a_dt or not b_dt:
         return 0
-    return max((b - a).days, 0)
+    return max((b_dt - a_dt).days, 0)
 
 def _calc_tempos_medios(prontuarios):
     tot_aud, n = 0, 0
@@ -504,6 +519,7 @@ def _calc_erros_timeline_mensal():
     valores = []
     hoje = datetime.now()
     
+    # Busca dos últimos 6 meses (incluindo o atual)
     for i in range(5, -1, -1):
         ano = hoje.year
         mes = hoje.month - i
@@ -518,6 +534,7 @@ def _calc_erros_timeline_mensal():
         labels.append(f"{nome_mes_pt[mes]}/{ano % 100}")
         
         try:
+            # Busca a contagem de erros no banco de dados para o mês/ano
             total_erros = db.session.query(func.count(Erro.id)).filter(
                 extract('year', Erro.data_criacao) == ano,
                 extract('month', Erro.data_criacao) == mes
@@ -536,14 +553,8 @@ def _calc_taxa_erros_setor(prontuarios):
     if total_com_erro == 0:
         return []
     
-    # Conta quantos prontuários com erro cada setor teve
-    contagem_por_setor = Counter()
+    contagem_por_setor = Counter(_norm_setor(p) for p in prontuarios_com_erro)
     
-    for p in prontuarios_com_erro:
-        setor = _norm_setor(p)
-        contagem_por_setor[setor] += 1
-    
-    # Calcula a porcentagem em relação ao total de prontuários com erro
     resultado = []
     for setor, quantidade in contagem_por_setor.items():
         taxa = round(100 * quantidade / total_com_erro, 1)
@@ -563,14 +574,8 @@ def _calc_taxa_erros_convenio(prontuarios):
     if total_com_erro == 0:
         return []
     
-    # Conta quantos prontuários com erro cada convênio teve
-    contagem_por_convenio = Counter()
+    contagem_por_convenio = Counter(_norm_convenio(p) for p in prontuarios_com_erro)
     
-    for p in prontuarios_com_erro:
-        convenio = _norm_convenio(p)
-        contagem_por_convenio[convenio] += 1
-    
-    # Calcula a porcentagem em relação ao total de prontuários com erro
     resultado = []
     for convenio, quantidade in contagem_por_convenio.items():
         taxa = round(100 * quantidade / total_com_erro, 1)
@@ -600,8 +605,9 @@ def _calc_top_erros(prontuarios_lista):
     mapa_tipos_erro = get_tipos_erro_dict()
     top_motivos = []
     for codigo, contagem in contagem_motivos.most_common(5):
+        # Usa o nome amigável (descricao) se disponível
         info = mapa_tipos_erro.get(codigo)
-        nome = info['nome'] if info else codigo
+        nome = info['descricao'] if info else codigo
         top_motivos.append({"nome": nome, "contagem": contagem})
         
     top_causas = []
@@ -616,16 +622,15 @@ def _calc_taxa_erros_responsavel(prontuarios):
     total_com_erro = len(prontuarios_com_erro)
     
     if total_com_erro == 0:
-        return []  # Nenhum prontuário com erro = lista vazia
+        return [] 
     
-    # Conta quantos prontuários com erro cada responsável teve
     contagem_por_responsavel = Counter()
     
     for p in prontuarios_com_erro:
         responsaveis = p.get('responsaveis', [])
         for responsavel in responsaveis:
-            contagem_por_responsavel[responsavel] += 1
-    
+            contagem_por_responsavel[responsavel] += 1 # Conta prontuário por responsável
+
     # Calcula a porcentagem em relação ao total de prontuários com erro
     resultado = []
     for responsavel, quantidade in contagem_por_responsavel.items():
@@ -653,7 +658,8 @@ def gerar_texto_periodo(ano, mes, periodo, data_inicio, data_fim):
             'semana': 'Última semana',
             'mes': 'Este Mês',
             'trimestre': 'Este Trimestre',
-            'ano': 'Este Ano'
+            'ano': 'Este Ano',
+            'todos': 'Todos os períodos'
         }
         return periodos.get(periodo, '')
     elif data_inicio and data_fim:
@@ -667,7 +673,7 @@ def gerar_texto_periodo(ano, mes, periodo, data_inicio, data_fim):
     return 'Todos os períodos'
 
 def _calc_erros_por_motivo_detalhado(prontuarios):
-    """Calcula estatísticas detalhadas de erros por motivo"""
+    """Calcula estatísticas detalhadas de erros por motivo (TipoErro)"""
     prontuarios_com_erro = [p for p in prontuarios if _tem_erro(p)]
     total_prontuarios_com_erro = len(prontuarios_com_erro)
     
@@ -676,28 +682,24 @@ def _calc_erros_por_motivo_detalhado(prontuarios):
             'total_prontuarios_com_erro': 0,
             'total_erros_registrados': 0,
             'total_tipos_erro': 0,
-            'media_erros_por_prontuario': 0
+            'media_erros_por_prontuario': 0.0
         }
     
-    # Contagem de prontuários por tipo de erro
     prontuarios_por_tipo = Counter()
-    # Contagem total de ocorrências por tipo
     ocorrencias_por_tipo = Counter()
-    # Cores dos tipos de erro
-    cores_por_tipo = {}
     
     tipos_erro_dict = get_tipos_erro_dict()
+    
+    total_erros_registrados = 0
     
     for p in prontuarios_com_erro:
         tipos_neste_prontuario = set()
         for erro in p.get('erros', []):
             tipo_erro = erro.get('tipo')
-            tipos_neste_prontuario.add(tipo_erro)
-            ocorrencias_por_tipo[tipo_erro] += 1
-            
-            # Guarda a cor do tipo de erro
-            if tipo_erro not in cores_por_tipo and tipo_erro in tipos_erro_dict:
-                cores_por_tipo[tipo_erro] = tipos_erro_dict[tipo_erro].get('cor', '#6c757d')
+            if tipo_erro:
+                tipos_neste_prontuario.add(tipo_erro)
+                ocorrencias_por_tipo[tipo_erro] += 1
+                total_erros_registrados += 1
         
         for tipo in tipos_neste_prontuario:
             prontuarios_por_tipo[tipo] += 1
@@ -706,18 +708,17 @@ def _calc_erros_por_motivo_detalhado(prontuarios):
     resultado = []
     for tipo_erro, qtd_prontuarios in prontuarios_por_tipo.most_common():
         info_tipo = tipos_erro_dict.get(tipo_erro, {})
-        nome_exibicao = info_tipo.get('nome', tipo_erro)
+        nome_exibicao = info_tipo.get('descricao', tipo_erro) # Usa a descrição como nome amigável
         cor = info_tipo.get('cor', '#6c757d')
         
         taxa_prontuarios = round(100 * qtd_prontuarios / total_prontuarios_com_erro, 1)
         total_ocorrencias = ocorrencias_por_tipo.get(tipo_erro, 0)
         
-        # Calcular a média aqui no backend
         media_por_prontuario = round(total_ocorrencias / qtd_prontuarios, 1) if qtd_prontuarios > 0 else 0.0
         
         resultado.append({
-            'tipo': tipo_erro,
-            'nome': nome_exibicao,
+            'tipo': tipo_erro, # Código/Nome interno
+            'nome': nome_exibicao, # Descrição amigável
             'prontuarios_com_erro': qtd_prontuarios,
             'taxa_prontuarios': taxa_prontuarios,
             'total_ocorrencias': total_ocorrencias,
@@ -726,24 +727,22 @@ def _calc_erros_por_motivo_detalhado(prontuarios):
         })
     
     # Estatísticas gerais
-    total_erros_registrados = sum(ocorrencias_por_tipo.values())
     stats_gerais = {
         'total_prontuarios_com_erro': total_prontuarios_com_erro,
         'total_erros_registrados': total_erros_registrados,
         'total_tipos_erro': len(prontuarios_por_tipo),
-        'media_erros_por_prontuario': round(total_erros_registrados / total_prontuarios_com_erro, 1) if total_prontuarios_com_erro > 0 else 0
+        'media_erros_por_prontuario': round(total_erros_registrados / total_prontuarios_com_erro, 1) if total_prontuarios_com_erro > 0 else 0.0
     }
     
     return resultado, stats_gerais
 
 def calcular_estatisticas_bd(prontuarios_obj):
-    """Calcula estatísticas diretamente dos objetos do banco"""
+    """Calcula estatísticas diretamente dos objetos do banco (para relatórios)"""
     total_por_status = {status: 0 for status in STATUS_OPCOES}
     erros_por_tipo = Counter()
     convenios = Counter()
     setores = Counter()
     
-    # 🔥 CORREÇÃO: Usar os objetos já carregados com erros
     for p in prontuarios_obj:
         if not p.status:
             continue
@@ -755,24 +754,23 @@ def calcular_estatisticas_bd(prontuarios_obj):
         convenios[p.convenio] += 1
         setores[p.setor] += 1
         
-        # 🔥 CORREÇÃO: Contar erros reais do objeto
         tipos_de_erro_neste_prontuario = set()
-        for erro in p.erros:  # Agora os erros já estão carregados
+        for erro in p.erros:
             tipo_erro_nome = erro.tipo
             tipos_de_erro_neste_prontuario.add(tipo_erro_nome)
         
         for tipo_nome in tipos_de_erro_neste_prontuario:
-            erros_por_tipo[tipo_nome] += 1
+            erros_por_tipo[tipo_nome] += 1 # Contagem de prontuários por tipo
     
     stats = {
         'total_por_status': total_por_status,
         'erros_por_tipo': dict(erros_por_tipo),
         'convenios': dict(convenios),
         'setores': dict(setores),
-        'total_prontuarios_com_erro': sum(1 for p in prontuarios_obj if p.erros)  # 🔥 Nova estatística
+        'total_prontuarios_com_erro': sum(1 for p in prontuarios_obj if p.erros) 
     }
     
-    print(f"📊 ESTATÍSTICAS BD: {stats['total_prontuarios_com_erro']} prontuários com erro")
+    # print(f"📊 ESTATÍSTICAS BD: {stats['total_prontuarios_com_erro']} prontuários com erro")
     return stats
 
 # --- ROTAS DE LOGIN/LOGOUT/REGISTRO ---
@@ -802,6 +800,10 @@ def logout():
 
 @app.route('/registrar_admin', methods=['GET', 'POST'])
 def registrar_admin():
+    # Rota para criar o primeiro usuário administrador
+    if User.query.first():
+        return "Usuário administrador já existe. Acesso restrito.", 403
+        
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -826,7 +828,7 @@ def debug_verificar_erros():
     try:
         # Buscar o último prontuário salvo
         ultimo_prontuario = Prontuario.query.options(
-            db.joinedload(Prontuario.erros)
+            joinedload(Prontuario.erros)
         ).order_by(Prontuario.id.desc()).first()
         
         if not ultimo_prontuario:
@@ -861,31 +863,13 @@ def debug_verificar_erros():
 @app.template_filter('format_date')
 def format_date(value):
     """Filtro para formatar datas no template"""
-    if not value:
-        return '-'
-    
-    if isinstance(value, str):
-        # Tenta converter string para datetime
-        try:
-            # Tenta vários formatos comuns
-            for fmt in ['%Y-%m-%d', '%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S']:
-                try:
-                    dt = datetime.strptime(value, fmt)
-                    return dt.strftime('%d/%m/%Y')
-                except ValueError:
-                    continue
-            # Se não conseguir converter, retorna os primeiros 10 caracteres (YYYY-MM-DD)
-            return value[:10]
-        except:
-            return value[:10]
-    elif hasattr(value, 'strftime'):
-        # Se já é um objeto datetime
-        return value.strftime('%d/%m/%Y')
-    else:
-        return str(value)
+    dt = _parse_any_date(value)
+    return dt.strftime('%d/%m/%Y') if dt else '-'
+
 # --- 5. ROTAS PRINCIPAIS ---
 
 @app.route('/')
+@login_required # Adicionado login_required
 def index():
     try:
         print("🚀 INICIANDO DASHBOARD COMPLETO...")
@@ -893,47 +877,68 @@ def index():
         # Parâmetros de filtro
         ano_filter = request.args.get('ano', '')
         mes_filter = request.args.get('mes', '')
-        periodo_filter = request.args.get('periodo', 'todos')
+        periodo_filter = request.args.get('periodo', 'mes') # Padrão: Este Mês
         data_inicio_filter = request.args.get('data_inicio', '')
         data_fim_filter = request.args.get('data_fim', '')
         
-        print(f"📋 FILTROS: periodo={periodo_filter}")
+        print(f"📋 FILTROS: periodo={periodo_filter}, ano={ano_filter}, mes={mes_filter}")
 
         # Query com todos os relacionamentos
+        # Usamos joinedload para carregar tudo de uma vez
         query = Prontuario.query.options(
-            db.joinedload(Prontuario.responsaveis),
-            db.joinedload(Prontuario.erros)
+            joinedload(Prontuario.responsaveis),
+            joinedload(Prontuario.erros).joinedload(Erro.responsavel),
+            joinedload(Prontuario.erros).joinedload(Erro.categoria_erro)
         )
 
-        # Aplicar filtro de período
-        if periodo_filter == 'mes':
-            inicio_mes = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            query = query.filter(Prontuario.data_criacao >= inicio_mes)
-        elif periodo_filter == 'semana':
-            inicio_semana = datetime.now() - timedelta(days=7)
-            query = query.filter(Prontuario.data_criacao >= inicio_semana)
-        elif periodo_filter == 'hoje':
-            inicio_hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-            query = query.filter(Prontuario.data_criacao >= inicio_hoje)
-        # 'todos' não aplica filtro
+        # Lógica de Filtragem (Centralizada no helper de relatórios para DRY)
+        def _aplicar_filtros_data(q, ano, mes, periodo, data_inicio, data_fim):
+            hoje = datetime.now()
+            
+            # Filtro por período predefinido (se data_inicio/fim não for informado)
+            if not data_inicio and not data_fim:
+                start_date = None
+                end_date = None
+                if periodo == 'hoje':
+                    start_date = hoje.replace(hour=0, minute=0, second=0, microsecond=0)
+                elif periodo == 'semana':
+                    start_date = hoje - timedelta(days=7)
+                elif periodo == 'mes':
+                    start_date = hoje.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                elif periodo == 'trimestre':
+                    trimestre_atual = (hoje.month - 1) // 3 + 1
+                    mes_inicio_trimestre = (trimestre_atual - 1) * 3 + 1
+                    start_date = hoje.replace(month=mes_inicio_trimestre, day=1, hour=0, minute=0, second=0, microsecond=0)
+                elif periodo == 'ano':
+                    start_date = hoje.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                # 'todos' não aplica start_date
+                
+                if start_date:
+                    q = q.filter(Prontuario.data_criacao >= start_date)
 
-        # Aplicar outros filtros se existirem
-        if data_inicio_filter:
-            data_ini = _parse_any_date(data_inicio_filter)
-            if data_ini:
-                query = query.filter(Prontuario.data_criacao >= data_ini)
-        if data_fim_filter:
-            data_fim_dt = _parse_any_date(data_fim_filter)
-            if data_fim_dt:
-                data_fim_dt = data_fim_dt.replace(hour=23, minute=59, second=59)
-                query = query.filter(Prontuario.data_criacao <= data_fim_dt)
-        if ano_filter:
-            query = query.filter(db.extract('year', Prontuario.data_criacao) == int(ano_filter))
-        if mes_filter:
-            query = query.filter(db.extract('month', Prontuario.data_criacao) == int(mes_filter))
+            # Filtro por data inicial e final (sobrescreve o filtro por período)
+            if data_inicio:
+                data_ini = _parse_any_date(data_inicio)
+                if data_ini:
+                    q = q.filter(Prontuario.data_criacao >= data_ini)
+            if data_fim:
+                data_fim_dt = _parse_any_date(data_fim)
+                if data_fim_dt:
+                    data_fim_dt = data_fim_dt.replace(hour=23, minute=59, second=59)
+                    q = q.filter(Prontuario.data_criacao <= data_fim_dt)
+            
+            # Filtro por ano/mês (sobrescreve/complementa)
+            if ano:
+                q = q.filter(db.extract('year', Prontuario.data_criacao) == int(ano))
+            if mes:
+                q = q.filter(db.extract('month', Prontuario.data_criacao) == int(mes))
+
+            return q
+
+        query_filtrada = _aplicar_filtros_data(query, ano_filter, mes_filter, periodo_filter, data_inicio_filter, data_fim_filter)
 
         # Ordenar e executar
-        prontuarios_obj = query.order_by(Prontuario.data_criacao.desc()).all()
+        prontuarios_obj = query_filtrada.order_by(Prontuario.data_criacao.desc()).all()
         prontuarios_lista = [prontuario_to_dict(p) for p in prontuarios_obj]
         
         print(f"📊 DADOS CARREGADOS: {len(prontuarios_lista)} prontuários")
@@ -945,16 +950,15 @@ def index():
             # Dados de fallback
             stats = {
                 "aguardando_auditoria": 0, "em_auditoria": 0, "aguardando_correcao": 0,
-                "entregue": 0, "taxa_erros": 0, "meta_taxa_erros": 10.0,
-                "total_registrados_mes": 0, "tempo_medio_auditoria": 0,
-                "taxa_conclusao": 0, "percentual_com_erros": 0,
+                "entregue": 0, "taxa_erros": 0.0, "meta_taxa_erros": 10.0,
+                "total_registrados_mes": 0, "tempo_medio_auditoria": 0.0,
+                "taxa_conclusao": 0.0, "percentual_com_erros": 0.0,
                 "media_erros_por_prontuario": 0.0,
                 "total_prontuarios_com_erro": 0,
                 "total_erros_registrados": 0,
                 "total_tipos_erro": 0
             }
             
-            # Listas vazias para gráficos
             stats_responsavel = []
             stats_convenio = []
             stats_top_motivos = []
@@ -963,7 +967,7 @@ def index():
             stats_motivos_detalhados = []
             stats_gerais_erros = {
                 'total_prontuarios_com_erro': 0,
-                'total_erros_registrados': 0, 
+                'total_erros_registrados': 0,  
                 'total_tipos_erro': 0,
                 'media_erros_por_prontuario': 0.0
             }
@@ -971,61 +975,48 @@ def index():
             stats_erros_mensais = {"labels": [], "valores": []}
             
         else:
-            # 🔥🔥🔥 CORREÇÃO CRÍTICA: CALCULAR PRIMEIRO AS ESTATÍSTICAS DETALHADAS
+            # 1. Calcular estatísticas de erros
             stats_motivos_detalhados, stats_gerais_erros = _calc_erros_por_motivo_detalhado(prontuarios_lista)
             
-            # Contar status
-            status_count = {
-                'Aguardando Auditoria': 0, 
-                'Em Auditoria': 0, 
-                'Aguardando Correção': 0, 
-                'Aguardando Revisão': 0, 
-                'Entregue ao Faturamento': 0
-            }
+            # 2. Contar status
+            status_count = Counter(p.get('status') for p in prontuarios_lista if p.get('status'))
             
-            for p in prontuarios_lista:
-                status = p.get('status', '')
-                if status in status_count:
-                    status_count[status] += 1
-            
-            # 🔥🔥🔥 CORREÇÃO: USAR DADOS CONSISTENTES DAS ESTATÍSTICAS JÁ CALCULADAS
+            # 3. Calcular métricas principais
             com_erro = stats_gerais_erros.get('total_prontuarios_com_erro', 0)
-            taxa_erros = round(100 * com_erro / total, 1) if total else 0
+            taxa_erros = round(100 * com_erro / total, 1) if total else 0.0
 
-            # Calcular outras estatísticas
+            # 4. Calcular outras estatísticas para gráficos
             stats_top_setores = _calc_taxa_erros_setor(prontuarios_lista)
             stats_top_motivos, stats_top_causas = _calc_top_erros(prontuarios_lista)
             stats_responsavel = _calc_taxa_erros_responsavel(prontuarios_lista)
             stats_convenio = _calc_taxa_erros_convenio(prontuarios_lista)
-            produtividade_mes = _calc_produtividade_diaria_mes(prontuarios_lista, datetime.now().year, datetime.now().month)
+            
+            # O cálculo de produtividade e timeline mensal usa o mês/ano atual ou filtros, dependendo de como a função helper está implementada
+            hoje = datetime.now()
+            produtividade_mes = _calc_produtividade_diaria_mes(prontuarios_lista, hoje.year, hoje.month)
             stats_erros_mensais = _calc_erros_timeline_mensal()
             
-            # 🔥🔥🔥 ESTATÍSTICAS COMPLETAS COM DADOS SINCRONIZADOS
+            # 5. Agrupar estatísticas
             stats = {
-                "aguardando_auditoria": status_count['Aguardando Auditoria'],
-                "em_auditoria": status_count['Em Auditoria'],
-                "aguardando_correcao": status_count['Aguardando Correção'] + status_count['Aguardando Revisão'],
-                "entregue": status_count['Entregue ao Faturamento'],
+                "aguardando_auditoria": status_count['Aguardando Auditoria'] if 'Aguardando Auditoria' in status_count else 0,
+                "em_auditoria": status_count['Em Auditoria'] if 'Em Auditoria' in status_count else 0,
+                "aguardando_correcao": (status_count['Aguardando Correção'] if 'Aguardando Correção' in status_count else 0) + \
+                                       (status_count['Aguardando Revisão'] if 'Aguardando Revisão' in status_count else 0),
+                "entregue": status_count['Entregue ao Faturamento'] if 'Entregue ao Faturamento' in status_count else 0,
                 "taxa_erros": taxa_erros,
                 "meta_taxa_erros": 10.0,
                 "total_registrados_mes": total,
-                "tempo_medio_auditoria": 0,
-                "taxa_conclusao": round(100 * status_count['Entregue ao Faturamento'] / total, 1) if total else 0,
+                "tempo_medio_auditoria": 0.0, # Implementação mais complexa, por enquanto 0
+                "taxa_conclusao": round(100 * (status_count['Entregue ao Faturamento'] if 'Entregue ao Faturamento' in status_count else 0) / total, 1) if total else 0.0,
                 "percentual_com_erros": taxa_erros,
-                # 🔥 DADOS SINCRONIZADOS - USANDO OS MESMOS VALORES DE stats_gerais_erros
+                # DADOS SINCRONIZADOS DE stats_gerais_erros
                 "media_erros_por_prontuario": stats_gerais_erros.get('media_erros_por_prontuario', 0.0),
                 "total_prontuarios_com_erro": stats_gerais_erros.get('total_prontuarios_com_erro', 0),
                 "total_erros_registrados": stats_gerais_erros.get('total_erros_registrados', 0),
                 "total_tipos_erro": stats_gerais_erros.get('total_tipos_erro', 0)
             }
 
-            print(f"📈 ESTATÍSTICAS: Total={total}, Com erro={com_erro}, Taxa={taxa_erros}%")
-            print(f"📊 GRÁFICOS: Motivos={len(stats_motivos_detalhados)}, Setores={len(stats_top_setores)}")
-            print(f"🔍 VERIFICAÇÃO DE SINCRONIA:")
-            print(f"   - stats.total_prontuarios_com_erro: {stats['total_prontuarios_com_erro']}")
-            print(f"   - stats_gerais_erros.total_prontuarios_com_erro: {stats_gerais_erros.get('total_prontuarios_com_erro', 0)}")
-            print(f"   - stats.total_erros_registrados: {stats['total_erros_registrados']}")
-            print(f"   - stats_gerais_erros.total_erros_registrados: {stats_gerais_erros.get('total_erros_registrados', 0)}")
+            # print(f"📈 ESTATÍSTICAS: Total={total}, Com erro={com_erro}, Taxa={taxa_erros}%")
 
         # Carregar dados de configuração
         try:
@@ -1045,11 +1036,10 @@ def index():
             tipos_erro_dict = {}
             categorias_erro_lista = []
             anos_disponiveis = []
-            stats_erros_mensais = {"labels": [], "valores": []}
 
         periodo_info = gerar_texto_periodo(ano_filter, mes_filter, periodo_filter, data_inicio_filter, data_fim_filter)
         
-        print(f"✅ RENDERIZANDO TEMPLATE com {total} prontuários e {len(stats_motivos_detalhados)} tipos de erro")
+        # print(f"✅ RENDERIZANDO TEMPLATE com {total} prontuários e {len(stats_motivos_detalhados)} tipos de erro")
 
         return render_template('index.html', 
             periodo_info=periodo_info,
@@ -1082,7 +1072,7 @@ def index():
         import traceback
         traceback.print_exc()
         return f"Erro no servidor: {str(e)}", 500
-    
+        
 @app.route('/prontuarios')
 @login_required
 def prontuarios():
@@ -1090,11 +1080,11 @@ def prontuarios():
     convenio_filter = request.args.get('convenio', '')
     setor_filter = request.args.get('setor', '')
     
-    # 🔥 CORREÇÃO CRÍTICA: Carregar TODOS os relacionamentos necessários
+    # Query com joinedload para carregar todos os relacionamentos
     query = Prontuario.query.options(
-        db.joinedload(Prontuario.responsaveis),
-        db.joinedload(Prontuario.erros).joinedload(Erro.responsavel),
-        db.joinedload(Prontuario.erros).joinedload(Erro.categoria_erro)
+        joinedload(Prontuario.responsaveis),
+        joinedload(Prontuario.erros).joinedload(Erro.responsavel),
+        joinedload(Prontuario.erros).joinedload(Erro.categoria_erro)
     )
     
     if status_filter:
@@ -1107,21 +1097,9 @@ def prontuarios():
     prontuarios_obj = query.order_by(Prontuario.data_criacao.desc()).all()
     prontuarios_filtrados = [prontuario_to_dict(p) for p in prontuarios_obj]
     
-    # 🔥 DEBUG: Verificar se os erros estão sendo carregados
-    total_erros = sum(len(p['erros']) for p in prontuarios_filtrados)
-    prontuarios_com_erro = sum(1 for p in prontuarios_filtrados if p['tem_erros'])
-    
-    print(f"📊 PRONTUARIOS CARREGADOS: {len(prontuarios_filtrados)}")
-    print(f"📊 TOTAL DE ERROS ENCONTRADOS: {total_erros}")
-    print(f"📊 PRONTUÁRIOS COM ERRO: {prontuarios_com_erro}")
-    
-    for p in prontuarios_filtrados:
-        if p['tem_erros']:
-            print(f"   ✅ Prontuário {p['id']}: {len(p['erros'])} erros")
-            for erro in p['erros']:
-                print(f"      - {erro['tipo']}: {erro['causa']}")
-        else:
-            print(f"   ❌ Prontuário {p['id']}: NENHUM ERRO")
+    # Debug removido para otimizar, mas mantido para referência
+    # total_erros = sum(len(p['erros']) for p in prontuarios_filtrados)
+    # prontuarios_com_erro = sum(1 for p in prontuarios_filtrados if p['tem_erros'])
     
     convenios = [c.nome for c in Convenio.query.filter_by(status='ativo').order_by(Convenio.nome).all()]
     setores = [s.nome for s in Setor.query.filter_by(status='ativo').order_by(Setor.nome).all()]
@@ -1129,23 +1107,24 @@ def prontuarios():
     tipos_erro_dict = get_tipos_erro_dict()
     
     return render_template('prontuarios.html',
-                            prontuarios=prontuarios_filtrados,
-                            status_opcoes=STATUS_OPCOES,
-                            convenios=convenios,
-                            setores=setores,
-                            responsaveis=responsaveis,
-                            tipos_erro=tipos_erro_dict,
-                            status_filter=status_filter,
-                            convenio_filter=convenio_filter,
-                            setor_filter=setor_filter)
+                           prontuarios=prontuarios_filtrados,
+                           status_opcoes=STATUS_OPCOES,
+                           convenios=convenios,
+                           setores=setores,
+                           responsaveis=responsaveis,
+                           tipos_erro=tipos_erro_dict,
+                           status_filter=status_filter,
+                           convenio_filter=convenio_filter,
+                           setor_filter=setor_filter)
 
 @app.route('/debug/prontuarios_com_erros')
 @login_required
 def debug_prontuarios_com_erros():
     """Rota para debug - verificar todos os prontuários e seus erros"""
     try:
+        # Usamos joinedload para garantir que os erros estão carregados
         prontuarios = Prontuario.query.options(
-            db.joinedload(Prontuario.erros)
+            joinedload(Prontuario.erros)
         ).all()
         
         resultado = []
@@ -1176,17 +1155,17 @@ def debug_prontuarios_com_erros():
         
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
-    
+        
 @app.route('/prontuario/<int:prontuario_id>')
 @login_required
 def detalhes_prontuario(prontuario_id):
     """Página de detalhes de um prontuário específico"""
     try:
-        # 🔥 CORREÇÃO CRÍTICA: Carregar TODOS os relacionamentos
+        # Query com joinedload para carregar todos os relacionamentos
         prontuario = Prontuario.query.options(
-            db.joinedload(Prontuario.responsaveis),
-            db.joinedload(Prontuario.erros).joinedload(Erro.responsavel),  # 🔥 Carregar responsável do erro
-            db.joinedload(Prontuario.erros).joinedload(Erro.categoria_erro)  # 🔥 Carregar categoria do erro
+            joinedload(Prontuario.responsaveis),
+            joinedload(Prontuario.erros).joinedload(Erro.responsavel),
+            joinedload(Prontuario.erros).joinedload(Erro.categoria_erro)
         ).get(prontuario_id)
         
         if not prontuario:
@@ -1195,12 +1174,6 @@ def detalhes_prontuario(prontuario_id):
         # Converter para dicionário para o template
         prontuario_dict = prontuario_to_dict(prontuario)
         
-        # 🔥 DEBUG: Verificar se os erros estão sendo carregados
-        print(f"🔍 DETALHES PRONTUÁRIO {prontuario_id}:")
-        print(f"   📝 Total de erros carregados: {len(prontuario_dict['erros'])}")
-        for i, erro in enumerate(prontuario_dict['erros']):
-            print(f"   📝 Erro {i+1}: {erro['tipo']} - {erro['causa']}")
-        
         # Carregar dados adicionais para o template
         convenios = [c.nome for c in Convenio.query.filter_by(status='ativo').order_by(Convenio.nome).all()]
         setores = [s.nome for s in Setor.query.filter_by(status='ativo').order_by(Setor.nome).all()]
@@ -1208,13 +1181,13 @@ def detalhes_prontuario(prontuario_id):
         tipos_erro_dict = get_tipos_erro_dict()
         
         return render_template('detalhes_prontuario.html',
-                              prontuario=prontuario_dict,
-                              status_opcoes=STATUS_OPCOES,
-                              convenios=convenios,
-                              setores=setores,
-                              responsaveis=responsaveis,
-                              tipos_erro=tipos_erro_dict)
-                              
+                               prontuario=prontuario_dict,
+                               status_opcoes=STATUS_OPCOES,
+                               convenios=convenios,
+                               setores=setores,
+                               responsaveis=responsaveis,
+                               tipos_erro=tipos_erro_dict)
+                               
     except Exception as e:
         print(f"❌ Erro ao carregar detalhes do prontuário {prontuario_id}: {str(e)}")
         import traceback
@@ -1224,7 +1197,12 @@ def detalhes_prontuario(prontuario_id):
 @app.route('/api/dashboard_data')
 @login_required
 def api_dashboard_data():
-    prontuarios_obj = Prontuario.query.all()
+    # Esta rota pode ser simplificada removendo a lógica de filtro e delegando ao /
+    # Mantenho a estrutura original, mas sem a lógica de filtro de período
+    
+    prontuarios_obj = Prontuario.query.options(
+        joinedload(Prontuario.erros)
+    ).all()
     prontuarios_lista = [prontuario_to_dict(p) for p in prontuarios_obj]
     
     total = len(prontuarios_lista)
@@ -1232,7 +1210,7 @@ def api_dashboard_data():
     c_status = Counter(_norm_status(p) for p in prontuarios_lista)
     aguardando  = c_status.get("aguardando_auditoria", 0)
     em_aud      = c_status.get("em_auditoria", 0)
-    para_corr   = c_status.get("aguardando_correcao", 0)
+    para_corr   = c_status.get("aguardando_correcao", 0) + c_status.get("aguardando_revisao", 0)
     entregues   = c_status.get("entregue_faturamento", 0)
 
     com_erro = sum(1 for p in prontuarios_lista if _tem_erro(p))
@@ -1245,6 +1223,8 @@ def api_dashboard_data():
     tempos = _calc_tempos_medios(prontuarios_lista)
     erros_por_setor = _calc_taxa_erros_setor(prontuarios_lista)
     
+    stats_gerais_erros = _calc_erros_por_motivo_detalhado(prontuarios_lista)[1]
+
     payload = {
         "stats": {
             "aguardando_auditoria": aguardando,
@@ -1257,6 +1237,10 @@ def api_dashboard_data():
             "tempo_medio_auditoria": tempos["auditoria"],
             "taxa_conclusao": round(100 * entregues / total, 1) if total else 0.0,
             "percentual_com_erros": taxa_erros,
+            "media_erros_por_prontuario": stats_gerais_erros.get('media_erros_por_prontuario', 0.0),
+            "total_prontuarios_com_erro": stats_gerais_erros.get('total_prontuarios_com_erro', 0),
+            "total_erros_registrados": stats_gerais_erros.get('total_erros_registrados', 0),
+            "total_tipos_erro": stats_gerais_erros.get('total_tipos_erro', 0)
         },
         "taxa_erros_setor": erros_por_setor,
         "produtividade_diaria_mes": produtividade,
@@ -1273,21 +1257,22 @@ def relatorios():
     data_inicio_filter = request.args.get('data_inicio', '')
     data_fim_filter = request.args.get('data_fim', '')
     
-    # 🔥 CORREÇÃO: Carregar todos os relacionamentos
+    # Query com joinedload para carregar todos os relacionamentos
     query = Prontuario.query.options(
-        db.joinedload(Prontuario.responsaveis),
-        db.joinedload(Prontuario.erros).joinedload(Erro.responsavel),
-        db.joinedload(Prontuario.erros).joinedload(Erro.categoria_erro)
+        joinedload(Prontuario.responsaveis),
+        joinedload(Prontuario.erros).joinedload(Erro.responsavel),
+        joinedload(Prontuario.erros).joinedload(Erro.categoria_erro)
     ).order_by(Prontuario.data_criacao.desc())
     
-    def filtrar_por_data_bd(q, ano, mes, periodo, data_inicio, data_fim):
+    def _aplicar_filtros_data(q, ano, mes, periodo, data_inicio, data_fim):
+        # ... [Implementação da função de filtro de data, idêntica à da rota index] ...
         hoje = datetime.now()
         
-        nonlocal periodo_filter
+        # Define o período padrão se nenhum filtro for fornecido
         if not any([ano, mes, periodo, data_inicio, data_fim]):
-            periodo = 'mes'
-            periodo_filter = 'mes'
+            periodo = 'mes' # Default para 'Este Mês'
         
+        # Filtro por período predefinido (se data_inicio/fim não for informado)
         if periodo:
             start_date = None
             end_date = None
@@ -1312,35 +1297,31 @@ def relatorios():
             elif start_date:
                 q = q.filter(Prontuario.data_criacao >= start_date)
 
+        # Filtro por data inicial e final
         if data_inicio:
             data_ini = _parse_any_date(data_inicio)
             if data_ini:
                 q = q.filter(Prontuario.data_criacao >= data_ini)
-                periodo_filter = ''
         if data_fim:
             data_fim_dt = _parse_any_date(data_fim)
             if data_fim_dt:
                 data_fim_dt = data_fim_dt.replace(hour=23, minute=59, second=59)
                 q = q.filter(Prontuario.data_criacao <= data_fim_dt)
-                periodo_filter = ''
-
+        
+        # Filtro por ano/mês
         if ano:
             q = q.filter(db.extract('year', Prontuario.data_criacao) == int(ano))
-            periodo_filter = ''
         if mes:
             q = q.filter(db.extract('month', Prontuario.data_criacao) == int(mes))
-            periodo_filter = ''
             
         return q
-
-    query_filtrada = filtrar_por_data_bd(query, ano_filter, mes_filter, periodo_filter, data_inicio_filter, data_fim_filter)
+    # ...
+    query_filtrada = _aplicar_filtros_data(query, ano_filter, mes_filter, periodo_filter, data_inicio_filter, data_fim_filter)
     
     prontuarios_filtrados_obj = query_filtrada.all()
     prontuarios_filtrados = [prontuario_to_dict(p) for p in prontuarios_filtrados_obj]
     
-    # 🔥 DEBUG: Verificar erros nos relatórios
-    total_erros_relatorio = sum(len(p['erros']) for p in prontuarios_filtrados)
-    print(f"📊 RELATÓRIO - Prontuários: {len(prontuarios_filtrados)}, Erros: {total_erros_relatorio}")
+    # print(f"📊 RELATÓRIO - Prontuários: {len(prontuarios_filtrados)}, Erros: {total_erros_relatorio}")
     
     anos_query = db.session.query(db.extract('year', Prontuario.data_criacao)).distinct().order_by(db.extract('year', Prontuario.data_criacao).desc()).limit(5)
     anos_disponiveis = [int(ano[0]) for ano in anos_query.all() if ano[0] is not None]
@@ -1359,6 +1340,7 @@ def relatorios():
         data_fim_filter
     )
     
+    # Calculando estatísticas a partir dos objetos carregados
     stats = calcular_estatisticas_bd(prontuarios_filtrados_obj)
     stats_taxa_erro_responsavel = _calc_taxa_erros_responsavel(prontuarios_filtrados)
     stats_taxa_erro_convenio = _calc_taxa_erros_convenio(prontuarios_filtrados)
@@ -1366,19 +1348,19 @@ def relatorios():
     tipos_erro_dict = get_tipos_erro_dict()
     
     return render_template('relatorios.html',
-                            prontuarios=prontuarios_filtrados,
-                            stats=stats,
-                            tipos_erro=tipos_erro_dict,
-                            anos_disponiveis=anos_disponiveis,
-                            meses_disponiveis=meses_disponiveis,
-                            periodo_info=periodo_info,
-                            ano_filter=ano_filter,
-                            mes_filter=mes_filter,
-                            periodo_filter=periodo_filter,
-                            data_inicio_filter=data_inicio_filter,
-                            data_fim_filter=data_fim_filter,
-                            stats_responsavel=stats_taxa_erro_responsavel,
-                            stats_convenio=stats_taxa_erro_convenio)
+                           prontuarios=prontuarios_filtrados,
+                           stats=stats,
+                           tipos_erro=tipos_erro_dict,
+                           anos_disponiveis=anos_disponiveis,
+                           meses_disponiveis=meses_disponiveis,
+                           periodo_info=periodo_info,
+                           ano_filter=ano_filter,
+                           mes_filter=mes_filter,
+                           periodo_filter=periodo_filter,
+                           data_inicio_filter=data_inicio_filter,
+                           data_fim_filter=data_fim_filter,
+                           stats_responsavel=stats_taxa_erro_responsavel,
+                           stats_convenio=stats_taxa_erro_convenio)
 # --- 6. APIs DE PRONTUÁRIOS ---
 @app.route('/api/excluir_prontuario/<int:prontuario_id>', methods=['DELETE'])
 @login_required
@@ -1414,6 +1396,10 @@ def atualizar_status(prontuario_id):
     
     try:
         prontuario.status = novo_status
+        # Atualizar a data de envio ao faturamento se o status for final
+        if novo_status == "Entregue ao Faturamento" and not prontuario.enviado_faturamento:
+             prontuario.enviado_faturamento = datetime.now()
+        
         prontuario.data_atualizacao = datetime.now()
         db.session.commit()
         return jsonify({'sucesso': True, 'novo_status': novo_status})
@@ -1427,71 +1413,50 @@ def adicionar_prontuario():
     try:
         dados = request.get_json()
         
-        print("=== 🚀 NOVO SISTEMA DE LANÇAMENTO ===")
-        print(f"📥 Dados recebidos: {list(dados.keys())}")
+        # print("=== 🚀 NOVO SISTEMA DE LANÇAMENTO ===")
+        # print(f"📥 Dados recebidos: {list(dados.keys())}")
         
-        # 🔥 DEBUG DETALHADO DOS ERROS
-        if 'erros' in dados:
-            print(f"🔍 TIPO DE 'erros': {type(dados['erros'])}")
-            print(f"🔍 CONTEÚDO DE 'erros': {dados['erros']}")
-            
-            if isinstance(dados['erros'], list):
-                print(f"📝 LISTA COM {len(dados['erros'])} ERROS:")
-                for i, erro in enumerate(dados['erros']):
-                    print(f"  Erro {i}: {erro}")
-        
-        # 🔥 CORREÇÃO 1: Validação de campos obrigatórios
+        # 1. Validação de campos obrigatórios
         campos_obrigatorios = ['beneficiario', 'convenio', 'setor', 'atendimento', 'admissao']
         for campo in campos_obrigatorios:
             if not dados.get(campo):
                 return jsonify({'sucesso': False, 'erro': f'Campo {campo} é obrigatório'}), 400
         
-        # 🔥 CORREÇÃO 2: Processamento de responsáveis
-        responsaveis_ids = []
-        if 'responsaveis' in dados:
-            if isinstance(dados['responsaveis'], list):
-                responsaveis_ids = [int(r) for r in dados['responsaveis'] if str(r).isdigit()]
-            elif isinstance(dados['responsaveis'], str):
-                responsaveis_ids = [int(dados['responsaveis'])]
-        
-        print(f"👥 RESPONSÁVEIS RECEBIDOS (IDs): {responsaveis_ids}")
-        
-        # 🔥 CORREÇÃO 3: Processamento de erros - ESTRUTURA CORRIGIDA
+        # 2. Processamento de responsáveis e erros
         erros_processados = []
         responsaveis_dos_erros = set()
         
         if 'erros' in dados and isinstance(dados['erros'], list):
             for erro in dados['erros']:
+                # Validação básica de erro
                 if (isinstance(erro, dict) and 
                     erro.get('tipo') and 
                     erro.get('causa') and 
                     erro.get('responsavel_id')):
                     
-                    # 🔥 CORREÇÃO: Garantir que os campos estão com nomes corretos
                     erro_processado = {
-                        'tipo': erro['tipo'],
+                        'tipo': erro['tipo'], # Ex: '01.01' (Nome/Código do TipoErro)
                         'causa': erro['causa'],
-                        'quantidade': erro.get('quantidade', 1),
-                        'responsavel_id': int(erro['responsavel_id'])  # Converter para int
+                        'quantidade': int(erro.get('quantidade', 1)),
+                        'responsavel_id': int(erro['responsavel_id'])
                     }
                     
                     erros_processados.append(erro_processado)
                     responsaveis_dos_erros.add(int(erro['responsavel_id']))
-        
-        print(f"🔍 ERROS PROCESSADOS: {len(erros_processados)}")
-        print(f"👥 RESPONSÁVEIS DOS ERROS: {responsaveis_dos_erros}")
-        
-        # 🔥 CORREÇÃO 4: Validação de responsáveis vs erros
-        todos_responsaveis = set(responsaveis_ids) | responsaveis_dos_erros
-        print(f"👥 TODOS RESPONSÁVEIS ENVOLVIDOS: {todos_responsaveis}")
-        
-        if len(erros_processados) > 0 and len(todos_responsaveis) == 0:
-            return jsonify({
-                'sucesso': False, 
-                'erro': 'Cada erro deve estar vinculado a um responsável válido.'
-            }), 400
 
-        # 🔥 CORREÇÃO 5: Criação do prontuário
+        # Responsáveis gerais (do formulário) + responsáveis dos erros
+        responsaveis_ids_form = []
+        if 'responsaveis' in dados:
+            if isinstance(dados['responsaveis'], list):
+                responsaveis_ids_form = [int(r) for r in dados['responsaveis'] if str(r).isdigit()]
+            elif isinstance(dados['responsaveis'], str) and dados['responsaveis'].isdigit():
+                responsaveis_ids_form = [int(dados['responsaveis'])]
+                
+        todos_responsaveis = set(responsaveis_ids_form) | responsaveis_dos_erros
+        
+        # print(f"👥 TODOS RESPONSÁVEIS ENVOLVIDOS: {todos_responsaveis}")
+        
+        # 3. Criação do prontuário
         novo_prontuario = Prontuario(
             beneficiario=dados['beneficiario'].strip(),
             convenio=dados['convenio'],
@@ -1511,9 +1476,9 @@ def adicionar_prontuario():
         )
         
         db.session.add(novo_prontuario)
-        db.session.flush()  # Para obter o ID
+        db.session.flush() # Para obter o ID
 
-        # 🔥 CORREÇÃO 6: Associar responsáveis ao prontuário
+        # 4. Associar responsáveis ao prontuário
         responsaveis_encontrados = []
         if todos_responsaveis:
             responsaveis_encontrados = Responsavel.query.filter(
@@ -1522,37 +1487,47 @@ def adicionar_prontuario():
             
             if responsaveis_encontrados:
                 novo_prontuario.responsaveis.extend(responsaveis_encontrados)
-                print(f"✅ {len(responsaveis_encontrados)} responsável(eis) associado(s) ao prontuário")
-            else:
-                print("⚠️  Nenhum responsável encontrado com os IDs fornecidos")
+                # print(f"✅ {len(responsaveis_encontrados)} responsável(eis) associado(s) ao prontuário")
 
-        # 🔥 CORREÇÃO 7: Adição de erros com quantidade
+        # 5. Adição de erros
         for erro_data in erros_processados:
-            # Buscar categoria pelo tipo de erro
-            categoria = CategoriaErro.query.filter_by(
-                nome=erro_data['tipo'], 
+            # Buscar CategoriaErro pelo nome (Tipo)
+            categoria_erro = CategoriaErro.query.filter_by(
+                nome=erro_data['tipo'], # Se 'tipo' vier com o nome da CategoriaErro
+                status='ativo'
+            ).first()
+
+            # Se não encontrar pela CategoriaErro, tenta TipoErro
+            tipo_erro_obj = TipoErro.query.filter_by(
+                nome=erro_data['tipo'], # Assumindo que o campo 'tipo' no payload é o código/nome do TipoErro
                 status='ativo'
             ).first()
             
+            # Se categoria não encontrada, tenta encontrar pelo TipoErro e define um padrão
+            if not categoria_erro and tipo_erro_obj:
+                # Se for um TipoErro mas não uma CategoriaErro, não atribui categoria
+                pass
+
+            # O campo 'tipo' no modelo Erro é a string do nome/código
+            tipo_para_erro_campo = tipo_erro_obj.nome if tipo_erro_obj else erro_data['tipo'] 
+
             # Criar múltiplos registros baseado na quantidade
             quantidade = erro_data.get('quantidade', 1)
             for _ in range(quantidade):
                 novo_erro = Erro(
                     prontuario_id=novo_prontuario.id,
-                    tipo=erro_data['tipo'],
+                    tipo=tipo_para_erro_campo, # Ex: '01.01'
                     causa=erro_data['causa'],
                     responsavel_id=erro_data['responsavel_id'],
-                    categoria_erro_id=categoria.id if categoria else None
+                    categoria_erro_id=categoria_erro.id if categoria_erro else None # Atribui o ID da Categoria
                 )
                 db.session.add(novo_erro)
             
-            print(f"✅ Adicionado {quantidade} erro(s) do tipo: {erro_data['tipo']}")
+            # print(f"✅ Adicionado {quantidade} erro(s) do tipo: {erro_data['tipo']}")
         
         db.session.commit()
         
-        print(f"✅ PRONTUÁRIO SALVO NO BD! ID: {novo_prontuario.id}")
-        print(f"📝 RESPONSÁVEIS ASSOCIADOS: {[r.nome for r in responsaveis_encontrados]}")
-        print(f"📝 TOTAL DE ERROS ASSOCIADOS: {len(erros_processados)} registros")
+        # print(f"✅ PRONTUÁRIO SALVO NO BD! ID: {novo_prontuario.id}")
         
         return jsonify({
             'sucesso': True, 
@@ -1567,32 +1542,7 @@ def adicionar_prontuario():
         traceback.print_exc()
         return jsonify({'sucesso': False, 'erro': str(e)}), 500
 
-# 🔥 FUNÇÃO AUXILIAR PARA PROCESSAR DATAS
-def _parse_any_date(date_str):
-    """Converte string de data para objeto date, lidando com vários formatos"""
-    if not date_str:
-        return None
-    
-    try:
-        # Para objetos date/datetime já serializados
-        if isinstance(date_str, (datetime, date)):
-            return date_str
-            
-        # Para strings
-        if isinstance(date_str, str):
-            # Remove timezone info se presente
-            date_str = date_str.split('T')[0]
-            
-            # Tenta parser com formato ISO
-            try:
-                return datetime.strptime(date_str, '%Y-%m-%d').date()
-            except ValueError:
-                # Tenta outros formatos se necessário
-                pass
-                
-        return None
-    except Exception:
-        return None
+# Funções auxiliares de data já estão no escopo global e corrigidas
 
 # --- NOVAS ROTAS PARA O SISTEMA DE CATEGORIAS ---
 @app.route('/api/categorias_erro')
@@ -1629,15 +1579,23 @@ def api_responsaveis_por_categoria(categoria_codigo):
 @login_required
 def api_prontuario_dados(prontuario_id):
     try:
-        prontuario = Prontuario.query.get(prontuario_id)
+        # Usamos joinedload para buscar erros com responsáveis e categorias
+        prontuario = Prontuario.query.options(
+            joinedload(Prontuario.responsaveis),
+            joinedload(Prontuario.erros).joinedload(Erro.responsavel),
+            joinedload(Prontuario.erros).joinedload(Erro.categoria_erro)
+        ).get(prontuario_id)
+        
         if not prontuario:
             return jsonify({'erro': 'Prontuário não encontrado'}), 404
         
-        return jsonify({
-            'erros': [{'tipo': e.tipo, 'causa': e.causa} for e in prontuario.erros],
-            'responsaveis': [r.nome for r in prontuario.responsaveis]
-        })
+        # Retorna o dicionário completo do prontuário
+        return jsonify(prontuario_to_dict(prontuario))
+        
     except Exception as e:
+        print(f"❌ Erro em api_prontuario_dados: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'erros': [], 'responsaveis': [], 'erro': str(e)}), 500
 
 @app.route('/api/atualizar_erros_responsavel/<int:prontuario_id>', methods=['POST'])
@@ -1650,27 +1608,38 @@ def api_atualizar_erros_responsavel(prontuario_id):
 
         dados = request.get_json()
         
+        # 1. Atualizar Responsáveis (Geral)
         if 'responsaveis' in dados:
             nomes_responsaveis = dados.get('responsaveis', [])
             if not isinstance(nomes_responsaveis, list):
-                 nomes_responsaveis = [nomes_responsaveis]
+                nomes_responsaveis = [nomes_responsaveis]
             
-            prontuario.responsaveis.clear() 
+            prontuario.responsaveis.clear() # Limpa associações antigas
             if nomes_responsaveis:
                 responsaveis_encontrados = Responsavel.query.filter(Responsavel.nome.in_(nomes_responsaveis)).all()
                 prontuario.responsaveis.extend(responsaveis_encontrados)
         
+        # 2. Atualizar Erros (Substituição Completa)
         if 'erros' in dados:
-            Erro.query.filter_by(prontuario_id=prontuario_id).delete()
+            Erro.query.filter_by(prontuario_id=prontuario_id).delete() # Remove todos os erros existentes
             
             for erro_data in dados['erros']:
                 if erro_data.get('tipo') and erro_data.get('causa'):
-                    novo_erro = Erro(
-                        prontuario_id=prontuario_id,
-                        tipo=erro_data['tipo'],
-                        causa=erro_data['causa']
-                    )
-                    db.session.add(novo_erro)
+                    # Tenta encontrar a CategoriaErro e o Responsável pelo ID
+                    responsavel_id = erro_data.get('responsavel_id')
+                    categoria_id = erro_data.get('categoria_erro_id')
+
+                    # Criar múltiplos registros (se quantidade for 1 ou mais)
+                    quantidade = int(erro_data.get('quantidade', 1))
+                    for _ in range(quantidade):
+                        novo_erro = Erro(
+                            prontuario_id=prontuario_id,
+                            tipo=erro_data['tipo'],
+                            causa=erro_data['causa'],
+                            responsavel_id=responsavel_id,
+                            categoria_erro_id=categoria_id
+                        )
+                        db.session.add(novo_erro)
         
         prontuario.data_atualizacao = datetime.now()
         db.session.commit()
@@ -1688,6 +1657,8 @@ def api_adicionar_erro_unico(prontuario_id):
         dados = request.get_json()
         tipo_erro = dados.get('tipo_erro')
         causa = dados.get('causa')
+        responsavel_id = dados.get('responsavel_id') # Adicionado
+        categoria_id = dados.get('categoria_erro_id') # Adicionado
         
         if not tipo_erro or not causa:
             return jsonify({'sucesso': False, 'erro': 'Tipo e causa são obrigatórios'}), 400
@@ -1699,57 +1670,57 @@ def api_adicionar_erro_unico(prontuario_id):
         novo_erro = Erro(
             prontuario_id=prontuario_id,
             tipo=tipo_erro,
-            causa=causa
+            causa=causa,
+            responsavel_id=responsavel_id,
+            categoria_erro_id=categoria_id
         )
         db.session.add(novo_erro)
         
         prontuario.data_atualizacao = datetime.now()
         db.session.commit()
         
-        return jsonify({'sucesso': True})
+        return jsonify({'sucesso': True, 'erro_id': novo_erro.id})
         
     except Exception as e:
         db.session.rollback()
         return jsonify({'sucesso': False, 'erro': str(e)}), 500
 
-@app.route('/api/remover_erro_unico/<int:prontuario_id>', methods=['POST'])
+@app.route('/api/remover_erro_unico/<int:erro_id>', methods=['DELETE']) # Rota ajustada para usar ID do Erro
 @login_required
-def api_remover_erro_unico(prontuario_id):
+def api_remover_erro_unico(erro_id):
     try:
-        dados = request.get_json()
-        tipo_erro = dados.get('tipo_erro')
-        causa = dados.get('causa')
+        erro = Erro.query.get(erro_id)
         
-        prontuario = Prontuario.query.get(prontuario_id)
-        if not prontuario:
-            return jsonify({'sucesso': False, 'erro': 'Prontuário não encontrado'}), 404
-            
-        erro = Erro.query.filter_by(
-            prontuario_id=prontuario_id,
-            tipo=tipo_erro,
-            causa=causa
-        ).first()
-        
-        if erro:
-            db.session.delete(erro)
-            prontuario.data_atualizacao = datetime.now()
-            db.session.commit()
-            return jsonify({'sucesso': True})
-        else:
+        if not erro:
             return jsonify({'sucesso': False, 'erro': 'Erro não encontrado para remover'}), 404
+            
+        prontuario_id = erro.prontuario_id
+        prontuario = Prontuario.query.get(prontuario_id)
+        
+        db.session.delete(erro)
+        
+        if prontuario:
+            prontuario.data_atualizacao = datetime.now()
+            
+        db.session.commit()
+        
+        return jsonify({'sucesso': True})
             
     except Exception as e:
         db.session.rollback()
         return jsonify({'sucesso': False, 'erro': str(e)}), 500
 
 # --- 7. APIs DE CONFIGURAÇÕES ---
+# Mantidas as APIs de configurações (convenios, setores, responsaveis, causas, tipos_erro)
+
 @app.route('/api/configuracoes/<string:tipo>', methods=['GET', 'POST'])
 @login_required
 def api_configuracoes(tipo):
     model_map = {
         'convenios': Convenio,
         'setores': Setor,
-        'responsaveis': Responsavel
+        'responsaveis': Responsavel,
+        'categorias_erro': CategoriaErro
     }
     if tipo not in model_map:
         return jsonify({'sucesso': False, 'erro': 'Tipo de configuração inválido'}), 404
@@ -1777,6 +1748,11 @@ def api_configuracoes(tipo):
                 if tipo == 'responsaveis':
                     item.funcao = dados.get('funcao', '')
                     item.setor_resp = dados.get('setor', '') 
+                if tipo == 'categorias_erro':
+                    item.codigo = dados.get('codigo', item.codigo)
+                    item.descricao = dados.get('descricao', '')
+                    item.cor = dados.get('cor', '#3498db')
+                    
             else:
                 if tipo == 'convenios':
                     item = Convenio(nome=dados['nome'], status=dados.get('status', 'ativo'))
@@ -1784,6 +1760,16 @@ def api_configuracoes(tipo):
                     item = Setor(nome=dados['nome'], status=dados.get('status', 'ativo'), descricao=dados.get('descricao', ''))
                 elif tipo == 'responsaveis':
                     item = Responsavel(nome=dados['nome'], status=dados.get('status', 'ativo'), funcao=dados.get('funcao', ''), setor_resp=dados.get('setor', ''))
+                elif tipo == 'categorias_erro':
+                    if not dados.get('codigo'):
+                        return jsonify({'sucesso': False, 'erro': 'Código é obrigatório para Categoria de Erro'}), 400
+                    item = CategoriaErro(
+                        nome=dados['nome'], 
+                        codigo=dados['codigo'], 
+                        descricao=dados.get('descricao', ''), 
+                        cor=dados.get('cor', '#3498db'),
+                        status=dados.get('status', 'ativo')
+                    )
                 db.session.add(item)
             
             db.session.commit()
@@ -1800,7 +1786,8 @@ def api_excluir_configuracao(tipo, item_id):
         'setores': Setor,
         'responsaveis': Responsavel,
         'causas': Causa,
-        'tipos_erro': TipoErro
+        'tipos_erro': TipoErro,
+        'categorias_erro': CategoriaErro
     }
     if tipo not in model_map:
         return jsonify({'sucesso': False, 'erro': 'Tipo de configuração inválido'}), 404
@@ -1811,6 +1798,12 @@ def api_excluir_configuracao(tipo, item_id):
         item = Model.query.get(item_id)
         if not item:
             return jsonify({'sucesso': False, 'erro': 'Item não encontrado'}), 404
+        
+        # Lógica especial para Responsável/CategoriaErro (tabelas de associação)
+        if tipo == 'responsaveis':
+            # Remove associações antes de deletar o responsável
+            item.categorias_erro.clear()
+            item.prontuarios.clear()
         
         db.session.delete(item)
         db.session.commit()
@@ -1862,6 +1855,7 @@ def api_tipos_erro():
     
     if request.method == 'POST':
         dados = request.get_json()
+        # 'nome' do TipoErro é o código (ex: '01.01'), 'descricao' é o nome amigável
         if not dados.get('nome') or not dados.get('descricao'):
             return jsonify({'sucesso': False, 'erro': 'Código e Nome (Descrição) são obrigatórios'}), 400
         
@@ -1893,74 +1887,38 @@ def api_tipos_erro():
             db.session.rollback()
             return jsonify({'sucesso': False, 'erro': str(e)}), 500
 
-@app.route('/api/popular_causas', methods=['POST'])
-@login_required
-def popular_causas_padrao():
-    DADOS_PADRAO = {
-        '01.01': {
-            'nome': 'Falta de Assinatura',
-            'cor': '#ffc107',
-            'causas': ['Falta assinatura do médico', 'Falta assinatura do paciente', 'Falta assinatura da enfermagem']
-        },
-        '02.01': {
-            'nome': 'Registro Incompleto',
-            'cor': '#fd7e14',
-            'causas': ['Evolução de enfermagem incompleta', 'Prescrição médica ilegível', 'Ausência de data/hora']
-        },
-        '03.01': {
-            'nome': 'Taxas e Materiais',
-            'cor': '#dc3545',
-            'causas': ['Cobrança indevida de material', 'Falta checagem de material', 'Divergência de taxa']
-        }
-    }
 
-    try:
-        db.session.query(Causa).delete()
-        db.session.query(TipoErro).delete()
-        db.session.commit()
-
-        for codigo, info in DADOS_PADRAO.items():
-            tipo_erro = TipoErro(
-                nome=codigo,
-                descricao=info['nome'],
-                cor=info['cor'],
-                status='ativo'
-            )
-            db.session.add(tipo_erro)
-            db.session.flush()
-
-            for desc_causa in info['causas']:
-                causa = Causa(
-                    descricao=desc_causa,
-                    status='ativo',
-                    tipo_erro_id=tipo_erro.id
-                )
-                db.session.add(causa)
-        
-        db.session.commit()
-        return jsonify({'sucesso': True, 'mensagem': 'Dados padrão recarregados.'})
-    except Exception as e:
-        db.session.rollback()
-        print(f"❌ Erro ao popular causas: {e}")
-        return jsonify({'sucesso': False, 'erro': str(e)}), 500
+# Rota de população de causas padrão REMOVIDA, conforme solicitado: @app.route('/api/popular_causas', methods=['POST'])
 
 @app.route('/configuracoes')
 @login_required
 def configuracoes():
+    # Usando .all() dentro do list comprehension para execução imediata da query
     convenios = [c.to_dict() for c in Convenio.query.order_by(Convenio.nome).all()]
     setores = [s.to_dict() for s in Setor.query.order_by(Setor.nome).all()]
-    responsaveis = [r.to_dict() for r in Responsavel.query.order_by(Responsavel.nome).all()]
+    
+    # Carregar responsáveis com as categorias associadas
+    responsaveis_obj = Responsavel.query.options(joinedload(Responsavel.categorias_erro)).order_by(Responsavel.nome).all()
+    responsaveis = [r.to_dict() for r in responsaveis_obj]
     
     tipos_erro_lista = [t.to_dict() for t in TipoErro.query.order_by(TipoErro.nome).all()]
     tipos_erro_dict = get_tipos_erro_dict() 
     
+    categorias_erro_lista = [c.to_dict() for c in CategoriaErro.query.order_by(CategoriaErro.nome).all()]
+    
+    # Carregar causas com o TipoErro associado
+    causas_obj = Causa.query.options(joinedload(Causa.tipo_erro)).order_by(Causa.descricao).all()
+    causas_lista = [c.to_dict() for c in causas_obj]
+
     return render_template(
         'configuracoes.html',
         convenios=convenios,
         setores=setores,
         responsaveis=responsaveis,
         tipos_erro_lista=tipos_erro_lista,
-        tipos_erro=tipos_erro_dict
+        tipos_erro=tipos_erro_dict,
+        causas=causas_lista,
+        categorias_erro_lista=categorias_erro_lista
     )
 
 
@@ -1968,62 +1926,63 @@ def configuracoes():
 @login_required
 def alimentacao():
     try:
-        print("🔍 Carregando dados para a página de alimentação...")
+        # print("🔍 Carregando dados para a página de alimentação...")
         
-        # Carregar convenios
+        # Carregar listas de opções ativas
         convenios = [c.nome for c in Convenio.query.filter_by(status='ativo').order_by(Convenio.nome).all()]
-        print(f"✅ Convenios carregados: {len(convenios)}")
-        
-        # Carregar setores
         setores = [s.nome for s in Setor.query.filter_by(status='ativo').order_by(Setor.nome).all()]
-        print(f"✅ Setores carregados: {len(setores)}")
-        
-        # Carregar responsáveis como OBJETOS (id, nome)
         responsaveis_db = Responsavel.query.filter_by(status='ativo').order_by(Responsavel.nome).all()
         responsaveis = [{'id': r.id, 'nome': r.nome} for r in responsaveis_db]
         
-        print(f"✅ Responsáveis carregados: {len(responsaveis)}")
-        
-        # Carregar tipos de erro
+        # Carregar dicionário de tipos de erro (com causas aninhadas)
         tipos_erro_dict = get_tipos_erro_dict()
-        print(f"✅ Tipos de erro carregados: {len(tipos_erro_dict)}")
+        
+        # Carregar lista de categorias de erro (para associação nos erros)
+        categorias_erro = [ce.to_dict() for ce in CategoriaErro.query.filter_by(status='ativo').order_by(CategoriaErro.nome).all()]
+        
+        # print(f"✅ Dados carregados. Convenios: {len(convenios)}, Responsáveis: {len(responsaveis)}, Tipos Erro: {len(tipos_erro_dict)}")
         
         return render_template('alimentacao.html',
-                                convenios=convenios,
-                                setores=setores,
-                                responsaveis=responsaveis,
-                                tipos_erro=tipos_erro_dict,
-                                status_opcoes=STATUS_OPCOES
-                                )
-                                
+                                 convenios=convenios,
+                                 setores=setores,
+                                 responsaveis=responsaveis,
+                                 tipos_erro=tipos_erro_dict,
+                                 categorias_erro=categorias_erro, # Passando categorias também
+                                 status_opcoes=STATUS_OPCOES
+                                 )
+                                 
     except Exception as e:
         print(f"❌ ERRO na rota /alimentacao: {str(e)}")
         import traceback
         traceback.print_exc()
         
-        # Fallback com dados básicos
+        # Fallback com dados básicos em caso de erro no banco
         return render_template('alimentacao.html',
-                                convenios=['Convênio A', 'Convênio B'],
-                                setores=['Setor A', 'Setor B'],
-                                responsaveis=[{'id': 1, 'nome': 'Responsável 1'}],
-                                tipos_erro={},
-                                status_opcoes=STATUS_OPCOES
-                                )
+                                 convenios=['Erro no BD'],
+                                 setores=['Erro no BD'],
+                                 responsaveis=[{'id': 1, 'nome': 'Erro no BD'}],
+                                 tipos_erro={},
+                                 categorias_erro=[],
+                                 status_opcoes=STATUS_OPCOES
+                                 )
 
 # --- 8. INICIALIZAÇÃO DA APLICAÇÃO ---
 if __name__ == '__main__':
     with app.app_context():
         print("Verificando e criando banco de dados se necessário...")
         try:
-            db.create_all()
+            # Garante que as tabelas existem. Não popula nem apaga dados existentes.
+            db.create_all() 
             print(f"Banco de dados está em: {db_path}")
             
             inspector = db.inspect(db.engine)
             tabelas = inspector.get_table_names()
             print(f"Tabelas encontradas: {tabelas}")
-            if 'prontuario' not in tabelas:
-                 print("ALERTA: Tabela 'prontuario' não foi criada. Verifique as permissões.")
-                 
+            
+            # Verificação básica de usuário admin - Rota /registrar_admin ainda está disponível se não houver usuários
+            if not User.query.first():
+                 print("⚠️ ALERTA: NENHUM USUÁRIO ENCONTRADO. Acesse /registrar_admin para criar o primeiro usuário.")
+                
         except Exception as e:
             print(f"ERRO CRÍTICO AO INICIAR O BANCO DE DADOS: {e}")
             print("Verifique se o diretório 'data' tem permissão de escrita.")
