@@ -1,0 +1,23 @@
+{
+  "name": "uniqueapp",
+  "version": "1.0.0",
+  "description": "Estrutura simples (Flask) para rodar no seu servidor.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lucianogt3/Nps-Solution.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lucianogt3/Nps-Solution/issues"
+  },
+  "homepage": "https://github.com/lucianogt3/Nps-Solution#readme",
+  "dependencies": {
+    "firebase-admin": "^13.6.0"
+  }
+}
