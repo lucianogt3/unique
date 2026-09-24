@@ -1,0 +1,1074 @@
+/*
+==============================================================
+AUDITORIA HOSPITALAR — RESPONSIVIDADE GLOBAL
+Desktop preservado. Tablet e telefone recebem navegação,
+componentes, formulários, tabelas e gráficos adaptados.
+==============================================================
+*/
+
+:root {
+    --mobile-header-height: 66px;
+    --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --mobile-safe-top: env(safe-area-inset-top, 0px);
+    --touch-target: 44px;
+}
+
+/* Regras de segurança de largura em todas as telas */
+html {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+}
+
+body.app-body {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+img,
+svg,
+canvas,
+video {
+    max-width: 100%;
+}
+
+.main-content,
+.main-content > *,
+.content-section,
+.container-fluid,
+.row,
+.card,
+.modal-content {
+    min-width: 0;
+}
+
+.mobile-menu-button,
+.sidebar-close,
+.sidebar-overlay,
+.sidebar-mobile-user {
+    display: none;
+}
+
+/* Evita que nomes, códigos e informações longas estourem cartões */
+.card,
+.table,
+.alert,
+.badge,
+.form-text,
+.log-details,
+.info-item,
+.error-details,
+.timeline-content-modern,
+.timeline-content-mini {
+    overflow-wrap: anywhere;
+}
+
+/* Controles adequados para toque sem modificar o desktop */
+@media (pointer: coarse) {
+    button,
+    .btn,
+    .menu-item,
+    .page-link,
+    .form-control,
+    .form-select,
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="time"] {
+        min-height: var(--touch-target);
+    }
+
+    .btn-sm {
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+/* ==========================================================
+   TABLET E TELEFONE — ESTRUTURA PRINCIPAL
+   ========================================================== */
+@media (max-width: 1199.98px) {
+    body.app-body {
+        display: block !important;
+    }
+
+    body.sidebar-open {
+        overflow: hidden;
+        touch-action: none;
+    }
+
+    .sidebar {
+        position: fixed !important;
+        inset: 0 auto 0 0;
+        z-index: 1055;
+        width: min(82vw, 300px) !important;
+        height: 100dvh !important;
+        transform: translateX(-105%);
+        transition: transform .24s ease;
+        box-shadow: 12px 0 28px rgba(15, 23, 42, .24);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    body.sidebar-open .sidebar {
+        transform: translateX(0);
+    }
+
+    .sidebar-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1050;
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        border: 0;
+        background: rgba(15, 23, 42, .56);
+        backdrop-filter: blur(2px);
+    }
+
+    body.sidebar-open .sidebar-overlay {
+        display: block;
+    }
+
+    .sidebar-header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        display: flex !important;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 70px;
+        padding: 1rem 1.1rem !important;
+        background: var(--primary-color, #2c3e50);
+    }
+
+    .sidebar .logo {
+        font-size: 1.25rem;
+    }
+
+    .sidebar-close {
+        width: 42px;
+        height: 42px;
+        display: inline-grid;
+        place-items: center;
+        border: 1px solid rgba(255,255,255,.18);
+        border-radius: 10px;
+        background: rgba(255,255,255,.08);
+        color: #fff;
+    }
+
+    .sidebar-menu {
+        padding: .75rem !important;
+    }
+
+    .sidebar .menu-item {
+        min-height: 50px;
+        margin-bottom: .25rem;
+        padding: .75rem .9rem !important;
+        border-radius: .7rem;
+    }
+
+    .sidebar .menu-text {
+        display: inline !important;
+    }
+
+    .sidebar-mobile-user {
+        display: flex;
+        align-items: center;
+        gap: .7rem;
+        margin: 1rem .75rem;
+        padding: .8rem;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: .75rem;
+        background: rgba(255,255,255,.06);
+        color: #fff;
+    }
+
+    .sidebar-mobile-user strong,
+    .sidebar-mobile-user small {
+        display: block;
+        line-height: 1.2;
+    }
+
+    .sidebar-mobile-user small {
+        margin-top: .2rem;
+        color: rgba(255,255,255,.68);
+        font-size: .72rem;
+    }
+
+    .sidebar-mobile-avatar {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: 50%;
+        background: rgba(255,255,255,.12);
+    }
+
+    .main-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: 100dvh;
+        margin-left: 0 !important;
+        padding: 0 16px 18px !important;
+        overflow-x: hidden;
+    }
+
+    .header {
+        position: sticky;
+        top: 0;
+        z-index: 1030;
+        min-height: var(--mobile-header-height);
+        margin: 0 -16px 16px !important;
+        padding:
+            max(.7rem, var(--mobile-safe-top))
+            16px
+            .7rem !important;
+        border-bottom: 1px solid #e1e7ed !important;
+        background: rgba(245, 247, 250, .96);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 2px 8px rgba(15, 23, 42, .06);
+    }
+
+    .header-title-area {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        min-width: 0;
+    }
+
+    .mobile-menu-button {
+        width: 44px;
+        height: 44px;
+        display: inline-grid;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid #dce3ea;
+        border-radius: 11px;
+        background: #fff;
+        color: #34495e;
+        box-shadow: 0 2px 5px rgba(15, 23, 42, .05);
+    }
+
+    .header h1 {
+        min-width: 0;
+        margin: 0 !important;
+        font-size: clamp(1.05rem, 2.7vw, 1.4rem) !important;
+        line-height: 1.15;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .header-user {
+        flex: 0 0 auto;
+    }
+
+    footer {
+        margin-top: 1rem !important;
+        padding: 1rem !important;
+        padding-bottom: calc(1rem + var(--mobile-safe-bottom)) !important;
+        font-size: .76rem;
+    }
+
+    /* Modais confortáveis no tablet */
+    .modal-dialog {
+        max-width: min(94vw, 760px);
+        margin: 1rem auto;
+    }
+
+    .modal-body {
+        max-height: calc(100dvh - 170px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .modal-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 3;
+        background: #fff;
+    }
+
+    /* Evita efeitos hover "presos" em tela touch */
+    .card:hover,
+    .btn:hover {
+        transform: none;
+    }
+}
+
+/* ==========================================================
+   TABLET
+   ========================================================== */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+    .main-content {
+        padding-left: 20px !important;
+        padding-right: 20px !important;
+    }
+
+    .header {
+        margin-left: -20px !important;
+        margin-right: -20px !important;
+        padding-left: 20px !important;
+        padding-right: 20px !important;
+    }
+
+    .content-section {
+        padding: 1.1rem !important;
+    }
+
+    /* Dashboard */
+    .dashboard-page .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .dashboard-page .dashboard-grid-main,
+    .dashboard-page .dashboard-grid-three {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .dashboard-page .dashboard-card-wide {
+        grid-column: 1 / -1;
+    }
+
+    .dashboard-page .filter-grid-primary,
+    .dashboard-page .filter-grid-secondary {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .dashboard-page .status-strip {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+
+    /* Configurações */
+    .settings-page .settings-metrics,
+    .settings-page .overview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .settings-page .settings-toolbar {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .settings-page .motivos-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Relatórios */
+    .relatorios-page .chart-box,
+    .relatorios-page .chart-box-lg {
+        min-height: 310px;
+    }
+}
+
+/* ==========================================================
+   TELEFONE
+   ========================================================== */
+@media (max-width: 767.98px) {
+    :root {
+        --mobile-header-height: 60px;
+    }
+
+    .main-content {
+        padding: 0 10px 14px !important;
+    }
+
+    .header {
+        min-height: 60px;
+        margin: 0 -10px 12px !important;
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+    }
+
+    .header-user-card {
+        min-width: 44px;
+        min-height: 44px;
+        justify-content: center;
+        padding: .3rem !important;
+    }
+
+    .header-user-card::after {
+        display: none;
+    }
+
+    .header-user-avatar {
+        width: 36px !important;
+        height: 36px !important;
+    }
+
+    .header .btn-primary {
+        min-width: 44px;
+        min-height: 44px;
+        padding: .55rem .7rem;
+        font-size: 0;
+    }
+
+    .header .btn-primary i {
+        margin: 0 !important;
+        font-size: 1rem;
+    }
+
+    .content-section,
+    .dashboard-card,
+    .analysis-card,
+    .settings-shell {
+        border-radius: .75rem !important;
+    }
+
+    .content-section {
+        margin-bottom: 1rem !important;
+        padding: .8rem !important;
+    }
+
+    .card {
+        padding: .9rem !important;
+    }
+
+    .card-header {
+        padding: .75rem .85rem !important;
+    }
+
+    .card-body {
+        padding: .85rem !important;
+    }
+
+    h1 { font-size: 1.3rem; }
+    h2 { font-size: 1.15rem; }
+    h3 { font-size: 1rem; }
+
+    .btn:not(.btn-icon):not(.btn-action):not(.page-link) {
+        min-height: 44px;
+    }
+
+    .form-control,
+    .form-select,
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="time"] {
+        min-height: 46px;
+        font-size: 16px !important; /* impede zoom automático no iPhone */
+    }
+
+    textarea.form-control {
+        min-height: 100px;
+    }
+
+    .input-group .input-group-text {
+        min-width: 44px;
+        justify-content: center;
+    }
+
+    /* Botões agrupados não ultrapassam a tela */
+    .d-flex.gap-2,
+    .d-flex.gap-3,
+    .settings-heading-actions,
+    .filter-buttons,
+    .dashboard-actions {
+        flex-wrap: wrap;
+    }
+
+    /* Modal quase em tela cheia */
+    .modal {
+        padding: 0 !important;
+    }
+
+    .modal-dialog {
+        width: calc(100% - 12px);
+        max-width: none !important;
+        margin: 6px auto !important;
+    }
+
+    .modal-content {
+        max-height: calc(100dvh - 12px);
+        border-radius: .8rem !important;
+    }
+
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding-left: .8rem !important;
+        padding-right: .8rem !important;
+    }
+
+    .modal-footer {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .55rem;
+    }
+
+    .modal-footer > * {
+        width: 100%;
+        margin: 0 !important;
+    }
+
+    /* ======================================================
+       TABELAS GENÉRICAS EM CARTÕES
+       Os rótulos são criados por mobile-responsive.js.
+       Prontuários possui sua própria versão especializada.
+       ====================================================== */
+    .table-responsive:has(table.mobile-card-table) {
+        overflow: visible !important;
+        border: 0 !important;
+        background: transparent !important;
+    }
+
+    table.mobile-card-table {
+        display: block;
+        min-width: 0 !important;
+        width: 100% !important;
+        border-collapse: separate !important;
+        background: transparent;
+    }
+
+    table.mobile-card-table thead {
+        display: none;
+    }
+
+    table.mobile-card-table tbody {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .65rem;
+    }
+
+    table.mobile-card-table tbody tr {
+        display: block;
+        overflow: hidden;
+        border: 1px solid #e1e7ed;
+        border-radius: .7rem;
+        background: #fff !important;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, .06);
+    }
+
+    table.mobile-card-table tbody tr:hover {
+        background: #fff !important;
+    }
+
+    table.mobile-card-table tbody td {
+        display: grid;
+        grid-template-columns: minmax(94px, 36%) minmax(0, 1fr);
+        align-items: start;
+        gap: .55rem;
+        width: 100% !important;
+        min-width: 0 !important;
+        padding: .58rem .7rem !important;
+        border: 0 !important;
+        border-bottom: 1px solid #edf1f4 !important;
+        background: transparent !important;
+        text-align: left !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+    }
+
+    table.mobile-card-table tbody td:last-child {
+        border-bottom: 0 !important;
+    }
+
+    table.mobile-card-table tbody td::before {
+        content: attr(data-label);
+        color: #718096;
+        font-size: .68rem;
+        font-weight: 800;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+    }
+
+    table.mobile-card-table tbody tr.mobile-empty-row td {
+        display: block;
+        text-align: center !important;
+    }
+
+    table.mobile-card-table tbody tr.mobile-empty-row td::before {
+        display: none;
+    }
+
+    /* ======================================================
+       DASHBOARD
+       ====================================================== */
+    .dashboard-page {
+        padding: 0 !important;
+    }
+
+    .dashboard-page .dashboard-heading {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: .7rem !important;
+    }
+
+    .dashboard-page .dashboard-actions {
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dashboard-page .dashboard-actions .btn {
+        width: 100%;
+        margin: 0 !important;
+    }
+
+    .dashboard-page .filter-panel {
+        padding: .75rem !important;
+    }
+
+    .dashboard-page .filter-panel-header {
+        align-items: flex-start !important;
+    }
+
+    .dashboard-page .filter-grid,
+    .dashboard-page .filter-grid-primary,
+    .dashboard-page .filter-grid-secondary,
+    .dashboard-page .kpi-grid,
+    .dashboard-page .dashboard-grid,
+    .dashboard-page .dashboard-grid-main,
+    .dashboard-page .dashboard-grid-three {
+        grid-template-columns: 1fr !important;
+        gap: .7rem !important;
+    }
+
+    .dashboard-page .quick-periods {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        padding-bottom: .35rem;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .dashboard-page .quick-period-btn {
+        flex: 0 0 auto;
+        min-height: 40px;
+        white-space: nowrap;
+    }
+
+    .dashboard-page .active-filters {
+        overflow-x: auto;
+        flex-wrap: nowrap !important;
+        padding-bottom: .25rem;
+    }
+
+    .dashboard-page .filter-chip {
+        flex: 0 0 auto;
+    }
+
+    .dashboard-page .kpi-card {
+        min-height: 116px !important;
+        padding: .85rem !important;
+    }
+
+    .dashboard-page .kpi-card strong {
+        font-size: 1.45rem !important;
+    }
+
+    .dashboard-page .analysis-card {
+        align-items: flex-start !important;
+        padding: .85rem !important;
+    }
+
+    .dashboard-page .analysis-icon {
+        width: 40px !important;
+        height: 40px !important;
+        flex: 0 0 auto;
+    }
+
+    .dashboard-page .status-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: .55rem !important;
+    }
+
+    .dashboard-page .chart-area,
+    .dashboard-page .chart-area-large {
+        min-height: 260px !important;
+        height: 260px !important;
+        max-height: 260px !important;
+    }
+
+    .dashboard-page .compact-table-wrap {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .dashboard-page .compact-table {
+        min-width: 650px;
+    }
+
+    .dashboard-page .ranked-item {
+        grid-template-columns: 34px minmax(0, 1fr) auto !important;
+        gap: .55rem !important;
+        padding: .65rem !important;
+    }
+
+    /* ======================================================
+       ALIMENTAÇÃO
+       ====================================================== */
+    .alimentacao-page {
+        padding: .75rem !important;
+    }
+
+    .alimentacao-page .row.g-2,
+    .alimentacao-page .row.g-3 {
+        --bs-gutter-x: .65rem;
+        --bs-gutter-y: .7rem;
+    }
+
+    .alimentacao-page .card-header {
+        text-align: left;
+    }
+
+    .alimentacao-page .form-actions-sticky {
+        position: sticky !important;
+        bottom: 0;
+        z-index: 20;
+        margin: .8rem -.75rem -.75rem !important;
+        padding: .7rem !important;
+        padding-bottom: calc(.7rem + var(--mobile-safe-bottom)) !important;
+        border-top: 1px solid #dfe5eb;
+        background: rgba(255,255,255,.97);
+        box-shadow: 0 -4px 12px rgba(15, 23, 42, .08);
+        backdrop-filter: blur(8px);
+    }
+
+    .alimentacao-page .form-actions-sticky .d-flex {
+        display: grid !important;
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+
+    .alimentacao-page .form-actions-sticky .btn {
+        width: 100%;
+    }
+
+    /* ======================================================
+       RELATÓRIOS
+       ====================================================== */
+    .relatorios-page {
+        padding: 0 !important;
+    }
+
+    .relatorios-page > .d-flex:first-child {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    .relatorios-page > .d-flex:first-child .d-flex {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .relatorios-page .chart-box,
+    .relatorios-page .chart-box-lg {
+        min-height: 270px !important;
+        height: 270px !important;
+    }
+
+    .relatorios-page .display-6 {
+        font-size: 1.65rem !important;
+    }
+
+    .relatorios-page .quality-item {
+        padding: .7rem !important;
+    }
+
+    .relatorios-page .table-responsive {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* As tabelas extensas do relatório ficam em rolagem, não em cartão */
+    .relatorios-page table {
+        min-width: 700px;
+    }
+
+    .relatorios-page table.mobile-card-table {
+        display: table;
+        min-width: 700px !important;
+    }
+
+    .relatorios-page table.mobile-card-table thead {
+        display: table-header-group;
+    }
+
+    .relatorios-page table.mobile-card-table tbody {
+        display: table-row-group;
+    }
+
+    .relatorios-page table.mobile-card-table tbody tr {
+        display: table-row;
+        box-shadow: none;
+    }
+
+    .relatorios-page table.mobile-card-table tbody td {
+        display: table-cell;
+        white-space: normal !important;
+    }
+
+    .relatorios-page table.mobile-card-table tbody td::before {
+        display: none;
+    }
+
+    /* ======================================================
+       CONFIGURAÇÕES
+       ====================================================== */
+    .settings-page {
+        padding: 0 !important;
+    }
+
+    .settings-heading,
+    .settings-section-header {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+
+    .settings-heading-actions {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .settings-heading-actions > * {
+        width: 100%;
+    }
+
+    .settings-heading-actions .btn {
+        width: 100%;
+    }
+
+    .settings-metrics,
+    .overview-grid,
+    .settings-toolbar,
+    .logs-toolbar,
+    .motivos-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .settings-tabs-wrap {
+        margin: 0 -.75rem;
+    }
+
+    .settings-tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap !important;
+        padding: .55rem .75rem !important;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .settings-tabs .nav-item {
+        flex: 0 0 auto;
+    }
+
+    .settings-content {
+        padding: .75rem !important;
+    }
+
+    .settings-metrics article {
+        padding: .8rem !important;
+    }
+
+    .settings-table-wrap {
+        overflow: visible !important;
+        border: 0 !important;
+    }
+
+    .settings-table {
+        min-width: 0 !important;
+    }
+
+    .settings-table .action-buttons,
+    .settings-table td.text-end {
+        justify-content: flex-start !important;
+        text-align: left !important;
+    }
+
+    .settings-table .action-buttons {
+        width: 100%;
+    }
+
+    .settings-table .action-buttons .btn {
+        flex: 1;
+        min-width: 44px;
+    }
+
+    .activity-list article {
+        grid-template-columns: 34px minmax(0, 1fr) !important;
+    }
+
+    .activity-list article > .badge {
+        grid-column: 2;
+        justify-self: start;
+    }
+
+    .log-details {
+        max-width: 100% !important;
+    }
+
+    /* ======================================================
+       DETALHES DO PRONTUÁRIO
+       ====================================================== */
+    .detalhes-prontuario-page {
+        padding: .75rem !important;
+    }
+
+    .detalhes-prontuario-page .breadcrumb {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: .25rem;
+        white-space: nowrap;
+    }
+
+    .detalhes-prontuario-page .d-flex.justify-content-between {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    .detalhes-prontuario-page .d-flex.justify-content-between > .d-flex {
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .detalhes-prontuario-page .d-flex.justify-content-between .btn {
+        width: 100%;
+    }
+
+    .detalhes-prontuario-page .info-item {
+        padding: .65rem 0;
+        border-bottom: 1px solid #edf1f4;
+    }
+
+    .detalhes-prontuario-page .error-card {
+        padding: .75rem !important;
+    }
+
+    .detalhes-prontuario-page .timeline-modern,
+    .detalhes-prontuario-page .timeline-mini {
+        padding-left: 0 !important;
+    }
+
+    .detalhes-prontuario-page .timeline-item-modern,
+    .detalhes-prontuario-page .timeline-item-mini {
+        grid-template-columns: 32px minmax(0, 1fr) !important;
+    }
+
+    /* ======================================================
+       PRONTUÁRIOS
+       Mantém a implementação responsiva especializada.
+       ====================================================== */
+    .prontuarios-page {
+        margin-top: 0;
+    }
+
+    /* ======================================================
+       LOGIN E CADASTRO
+       ====================================================== */
+    body.auth-page {
+        min-height: 100vh !important;
+        min-height: 100dvh !important;
+        height: auto !important;
+        align-items: flex-start !important;
+        overflow-y: auto;
+        padding:
+            calc(18px + var(--mobile-safe-top))
+            12px
+            calc(18px + var(--mobile-safe-bottom)) !important;
+    }
+
+    body.auth-page .login-card,
+    body.auth-page .register-card {
+        width: 100% !important;
+        max-width: 460px !important;
+        margin: auto !important;
+        border-radius: 16px !important;
+    }
+
+    body.auth-page .card-header-custom {
+        padding: 24px 20px 10px !important;
+    }
+
+    body.auth-page .card-body-custom {
+        padding: 14px 20px 24px !important;
+    }
+
+    body.auth-page .register-card {
+        padding: 1.1rem !important;
+    }
+
+    body.auth-page .logo-icon {
+        width: 64px !important;
+        height: 64px !important;
+        margin-bottom: 12px !important;
+        font-size: 27px !important;
+    }
+
+    body.auth-page .form-control,
+    body.auth-page .input-group-text,
+    body.auth-page .btn {
+        min-height: 48px;
+    }
+}
+
+/* Telefones pequenos */
+@media (max-width: 430px) {
+    .dashboard-page .dashboard-actions,
+    .settings-heading-actions,
+    .relatorios-page > .d-flex:first-child .d-flex,
+    .detalhes-prontuario-page .d-flex.justify-content-between > .d-flex,
+    .modal-footer {
+        grid-template-columns: 1fr !important;
+    }
+
+    table.mobile-card-table tbody td {
+        display: block;
+    }
+
+    table.mobile-card-table tbody td::before {
+        display: block;
+        margin-bottom: .2rem;
+    }
+
+    .dashboard-page .status-strip {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Orientação horizontal de telefone */
+@media (max-height: 520px) and (orientation: landscape) and (max-width: 950px) {
+    .header {
+        position: relative;
+    }
+
+    .modal-body {
+        max-height: calc(100dvh - 125px);
+    }
+
+    body.auth-page {
+        align-items: flex-start !important;
+    }
+}
+
+/* Acessibilidade */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
+}
+
+/* Impressão continua obedecendo o CSS específico de cada página */
+@media print {
+    .mobile-menu-button,
+    .sidebar-overlay,
+    .sidebar-close,
+    .sidebar-mobile-user {
+        display: none !important;
+    }
+}

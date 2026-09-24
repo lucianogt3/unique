@@ -16,11 +16,19 @@
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+html,
+body {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100%;
+    overflow-x: hidden;
+}
+
 body {
     background-color: #f5f7fa;
     color: #333;
     line-height: 1.6;
-    display: flex;
+    display: block;
 }
 
 .sidebar {
@@ -29,7 +37,11 @@ body {
     color: white;
     height: 100vh;
     position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
     overflow-y: auto;
+    overflow-x: hidden;
     transition: all 0.3s;
 }
 
@@ -81,10 +93,19 @@ body {
 }
 
 .main-content {
-    flex: 1;
     margin-left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+    max-width: calc(100% - var(--sidebar-width));
+    min-width: 0;
+    min-height: 100vh;
     padding: 20px;
-    transition: all 0.3s;
+    overflow-x: hidden;
+    transition: margin-left 0.3s, width 0.3s, max-width 0.3s;
+}
+
+.main-content > * {
+    max-width: 100%;
+    min-width: 0;
 }
 
 .header {
@@ -148,11 +169,15 @@ body {
 .card.status-total { border-top: 4px solid var(--dark-color); }
 
 .content-section {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     padding: 1.5rem;
     margin-bottom: 2rem;
+    overflow: hidden;
 }
 
 .section-header {
@@ -190,7 +215,21 @@ body {
 }
 
 .table-container {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+}
+
+.table-container > table {
+    width: max-content;
+    min-width: 100%;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
 }
 
 table {
@@ -423,6 +462,10 @@ footer {
     
     .main-content {
         margin-left: 70px;
+        width: calc(100% - 70px);
+        max-width: calc(100% - 70px);
+        min-width: 0;
+        padding: 12px;
     }
     
     .dashboard {
@@ -530,3 +573,55 @@ footer {
     justify-content: center;
 }
 
+/* =========================================================
+   CORREÇÃO DE LAYOUT: CONTEÚDO E TABELAS FORA DO MENU LATERAL
+   ========================================================= */
+.sidebar {
+    top: 0;
+    left: 0;
+    z-index: 1000;
+}
+
+.main-content {
+    box-sizing: border-box;
+    margin-left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+    max-width: calc(100% - var(--sidebar-width));
+    min-width: 0;
+    overflow-x: hidden;
+}
+
+.main-content .content-section {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.main-content .table-container,
+.main-content .table-responsive {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto !important;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+}
+
+.main-content .table-container > table,
+.main-content .table-responsive > table {
+    min-width: 1180px;
+    width: 100%;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 70px;
+        width: calc(100% - 70px);
+        max-width: calc(100% - 70px);
+        min-width: 0;
+        padding: 12px;
+    }
+}

@@ -1,0 +1,103 @@
+OTIMIZAÇÃO RESPONSIVA DO APLICATIVO COMPLETO
+
+ESCOPO
+- Menu e cabeçalho global
+- Dashboard
+- Prontuários
+- Alimentação
+- Relatórios
+- Configurações
+- Usuários e logs
+- Detalhes do prontuário
+- Login
+- Cadastro inicial
+- Modais e tabelas
+
+NÃO ALTERA
+- app.py
+- banco de dados
+- cálculos
+- filtros do backend
+- relatórios
+- paginação
+- rotas
+- dados dos prontuários
+
+COMPORTAMENTO
+Computador:
+- visual atual preservado;
+- sidebar fixa;
+- tabelas e gráficos completos.
+
+Tablet:
+- menu lateral abre como gaveta;
+- conteúdo usa toda a largura;
+- Dashboard em duas colunas;
+- filtros e métricas reorganizados;
+- modais e botões adequados ao toque.
+
+Telefone:
+- botão de menu no cabeçalho;
+- layout em uma coluna;
+- controles com área de toque ampliada;
+- formulários sem zoom automático;
+- tabelas comuns viram cartões;
+- tabelas extensas dos relatórios usam rolagem horizontal;
+- gráficos com altura reduzida;
+- modais quase em tela cheia;
+- login e cadastro adaptados à altura real do aparelho.
+
+ARQUIVOS
+templates/
+  base.html
+  index.html
+  prontuarios.html
+  alimentacao.html
+  relatorios.html
+  configuracoes.html
+  modais_configuracoes.html
+  detalhes_prontuario.html
+  login.html
+  register.html
+
+static/css/
+  mobile-responsive.css
+
+static/js/
+  mobile-responsive.js
+  configuracoes.js
+
+INSTALAÇÃO AUTOMÁTICA
+Abra PowerShell como administrador dentro da pasta extraída:
+
+powershell -ExecutionPolicy Bypass -File .\INSTALAR-RESPONSIVO.ps1
+
+O script utiliza:
+C:\NurseTec-Apps\UniqueApp
+Serviço: UniqueApp
+
+INSTALAÇÃO MANUAL
+1. Pare o serviço UniqueApp.
+2. Faça backup da pasta templates.
+3. Copie templates para:
+   C:\NurseTec-Apps\UniqueApp\templates
+4. Copie mobile-responsive.css para:
+   C:\NurseTec-Apps\UniqueApp\static\css
+5. Copie mobile-responsive.js e configuracoes.js para:
+   C:\NurseTec-Apps\UniqueApp\static\js
+6. Valide os templates.
+7. Inicie o serviço.
+8. Atualize o navegador com Ctrl + F5.
+
+TESTES RECOMENDADOS
+- computador: 1366 x 768;
+- tablet: 768 x 1024;
+- telefone: 390 x 844;
+- telefone horizontal;
+- abrir e fechar menu;
+- Dashboard e gráficos;
+- formulário de Alimentação;
+- página de Prontuários e paginação;
+- Configurações, Usuários e Logs;
+- detalhes do prontuário;
+- login e logout.
